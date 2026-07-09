@@ -119,111 +119,133 @@
           </div>
         </header>
 
-        <!-- Main Workspace: 3 Column Layout (Mobile transitions to stacked) -->
-        <div class="workspace-grid">
+        <!-- Tabs Navigation Bar -->
+        <div class="tabs-container">
+          <button id="tab-btn-activity" class="tab-btn active">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+              <circle cx="9" cy="7" r="4"></circle>
+              <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+              <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+            Friends & Expenses
+          </button>
+          <button id="tab-btn-settlements" class="tab-btn">
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="12" y1="1" x2="12" y2="23"></line>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
+            </svg>
+            Settlement & Balances
+          </button>
+        </div>
 
-          <!-- Column 1: Friends Manager -->
-          <section class="workspace-col card col-friends">
-            <div class="col-header">
-              <h2>Friends</h2>
-              <span id="friends-count" class="badge">0</span>
-            </div>
-
-            <!-- Quick Add Friend Form -->
-            <form id="form-add-friend" class="quick-add-form">
-              <div class="input-group-inline">
-                <input type="text" id="friend-name-input" placeholder="Friend's name..." required>
-                <button type="submit" class="btn btn-accent btn-square" title="Add Friend">
-                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
-                    <line x1="12" y1="5" x2="12" y2="19"></line>
-                    <line x1="5" y1="12" x2="19" y2="12"></line>
-                  </svg>
-                </button>
-              </div>
-            </form>
-
-            <!-- Friends list container -->
-            <div class="friends-list-wrapper">
-              <ul id="friends-list" class="friends-interactive-list">
-                <!-- Dynamically populated -->
-              </ul>
-              <!-- Inline edit friend container (reusable template or triggered inline) -->
-            </div>
-          </section>
-
-          <!-- Column 2: Expense Ledger -->
-          <section class="workspace-col card col-expenses">
-            <div class="col-header">
-              <h2>Expenses</h2>
-              <span id="expenses-count" class="badge">0</span>
-            </div>
-
-            <div class="expenses-list-wrapper">
-              <div id="expenses-empty-state" class="sub-empty-state">
-                <p>No expenses added yet. Tap "Add Expense" to get started splitting!</p>
-              </div>
-              <ul id="expenses-list" class="expenses-ledger-list">
-                <!-- Dynamically populated -->
-              </ul>
-            </div>
-          </section>
-
-          <!-- Column 3: Balance Summaries & Settle Plan -->
-          <section class="workspace-col card col-summary">
-            <div class="col-header">
-              <h2>Settlement & Balances</h2>
-            </div>
-
-            <!-- Balance Table Summary -->
-            <div class="summary-section">
-              <h3>Balance Sheets</h3>
-              <div class="table-container">
-                <table class="balance-table">
-                  <thead>
-                    <tr>
-                      <th>Friend</th>
-                      <th class="txt-right">Paid</th>
-                      <th class="txt-right">Share</th>
-                      <th class="txt-right">Net</th>
-                    </tr>
-                  </thead>
-                  <tbody id="balances-table-body">
-                    <!-- Dynamically populated -->
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Who Owes Whom Summary -->
-            <div class="summary-section settle-section">
-              <div class="section-title-row">
-                <h3>Who Owes Whom</h3>
-                <div id="export-actions-wrapper" class="export-actions" style="display: none;">
-                  <button id="btn-export-image" class="btn-action-text" title="Export as Image">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-                      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                      <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                      <polyline points="21 15 16 10 5 21"></polyline>
-                    </svg>
-                    Image
-                  </button>
-                  <button id="btn-export-pdf" class="btn-action-text" title="Export as PDF">
-                    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                      <polyline points="14 2 14 8 20 8"></polyline>
-                      <line x1="16" y1="13" x2="8" y2="13"></line>
-                      <line x1="16" y1="17" x2="8" y2="17"></line>
-                    </svg>
-                    PDF
-                  </button>
+        <!-- Tab Content Wrapper -->
+        <div class="tab-content-wrapper">
+          <!-- Tab 1: Friends & Expenses -->
+          <div id="tab-content-activity" class="tab-pane active">
+            <div class="workspace-grid-activity">
+              <!-- Column 1: Friends Manager -->
+              <section class="workspace-col card col-friends">
+                <div class="col-header">
+                  <h2>Friends</h2>
+                  <span id="friends-count" class="badge">0</span>
                 </div>
-              </div>
-              <div id="settlements-container" class="settlements-container">
-                <!-- Dynamically populated (e.g. John pays Sarah LKR 20.00) -->
-              </div>
-            </div>
-          </section>
 
+                <!-- Quick Add Friend Form -->
+                <form id="form-add-friend" class="quick-add-form">
+                  <div class="input-group-inline">
+                    <input type="text" id="friend-name-input" placeholder="Friend's name..." required>
+                    <button type="submit" class="btn btn-accent btn-square" title="Add Friend">
+                      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                      </svg>
+                    </button>
+                  </div>
+                </form>
+
+                <!-- Friends list container -->
+                <div class="friends-list-wrapper">
+                  <ul id="friends-list" class="friends-interactive-list">
+                    <!-- Dynamically populated -->
+                  </ul>
+                </div>
+              </section>
+
+              <!-- Column 2: Expense Ledger -->
+              <section class="workspace-col card col-expenses">
+                <div class="col-header">
+                  <h2>Expenses</h2>
+                  <span id="expenses-count" class="badge">0</span>
+                </div>
+
+                <div class="expenses-list-wrapper">
+                  <div id="expenses-empty-state" class="sub-empty-state">
+                    <p>No expenses added yet. Tap "Add Expense" to get started splitting!</p>
+                  </div>
+                  <ul id="expenses-list" class="expenses-ledger-list">
+                    <!-- Dynamically populated -->
+                  </ul>
+                </div>
+              </section>
+            </div>
+          </div>
+
+          <!-- Tab 2: Settlement & Balances -->
+          <div id="tab-content-settlements" class="tab-pane">
+            <div class="workspace-grid-settlements">
+              <!-- Column 3A: Balance Sheets -->
+              <section class="workspace-col card col-balances-only">
+                <div class="col-header">
+                  <h2>Balance Sheets</h2>
+                </div>
+                <div class="table-container">
+                  <table class="balance-table">
+                    <thead>
+                      <tr>
+                        <th>Friend</th>
+                        <th class="txt-right">Paid</th>
+                        <th class="txt-right">Share</th>
+                        <th class="txt-right">Net</th>
+                      </tr>
+                    </thead>
+                    <tbody id="balances-table-body">
+                      <!-- Dynamically populated -->
+                    </tbody>
+                  </table>
+                </div>
+              </section>
+
+              <!-- Column 3B: Who Owes Whom -->
+              <section class="workspace-col card col-settlements-only">
+                <div class="col-header">
+                  <h2>Who Owes Whom</h2>
+                  <div id="export-actions-wrapper" class="export-actions" style="display: none;">
+                    <button id="btn-export-image" class="btn-action-text" title="Export as Image">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                        <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                        <polyline points="21 15 16 10 5 21"></polyline>
+                      </svg>
+                      Image
+                    </button>
+                    <button id="btn-export-pdf" class="btn-action-text" title="Export as PDF">
+                      <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                        <polyline points="14 2 14 8 20 8"></polyline>
+                        <line x1="16" y1="13" x2="8" y2="13"></line>
+                        <line x1="16" y1="17" x2="8" y2="17"></line>
+                      </svg>
+                      PDF
+                    </button>
+                  </div>
+                </div>
+                <div id="settlements-container" class="settlements-container">
+                  <!-- Dynamically populated -->
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
       </div>
     </main>
@@ -248,6 +270,19 @@
         <div class="form-group">
           <label for="group-name-input">Group Name</label>
           <input type="text" id="group-name-input" placeholder="e.g. Road Trip, Roomies" required max="40">
+        </div>
+        <div class="form-group">
+          <label for="group-currency-select">Currency</label>
+          <select id="group-currency-select" required>
+            <option value="LKR">LKR (Rs.)</option>
+            <option value="USD">USD ($)</option>
+            <option value="EUR">EUR (€)</option>
+            <option value="GBP">GBP (£)</option>
+            <option value="INR">INR (₹)</option>
+            <option value="AUD">AUD (A$)</option>
+            <option value="CAD">CAD (C$)</option>
+            <option value="JPY">JPY (¥)</option>
+          </select>
         </div>
         <div class="modal-actions">
           <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
