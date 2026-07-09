@@ -63,45 +63,7 @@ function initFallbackData() {
   const f4 = generateId();
 
   state = {
-    groups: [
-      {
-        id: demoGroupId,
-        name: 'Apartment Roomies 🏠',
-        friends: [
-          { id: f1, name: 'Alex' },
-          { id: f2, name: 'Jamie' },
-          { id: f3, name: 'Morgan' },
-          { id: f4, name: 'Taylor' }
-        ],
-        expenses: [
-          {
-            id: generateId(),
-            description: 'Weekly Groceries',
-            amount: 120.00,
-            paidBy: f1,
-            participants: [f1, f2, f3, f4],
-            date: '2026-07-06'
-          },
-          {
-            id: generateId(),
-            description: 'Electricity Bill',
-            amount: 80.00,
-            paidBy: f2,
-            participants: [f1, f2, f3, f4],
-            date: '2026-07-07'
-          },
-          {
-            id: generateId(),
-            description: 'Morgan\'s Birthday Dinner',
-            amount: 150.00,
-            paidBy: f3,
-            participants: [f1, f2, f4], //Morgan doesn't pay for own birthday dinner
-            date: '2026-07-07'
-          }
-        ]
-      }
-    ],
-    activeGroupId: demoGroupId
+
   };
   saveState();
 }
@@ -122,7 +84,7 @@ function processGroupFinancials(group) {
   if (!group) return { totalSpent: 0, personBreakdown: {}, settlements: [] };
 
   const totalSpent = group.expenses.reduce((sum, exp) => sum + Number(exp.amount), 0);
-  
+
   // Initialize breakdown structure
   const breakdown = {};
   group.friends.forEach(f => {
@@ -342,13 +304,13 @@ function renderFriends(group, breakdown) {
     friendsListEl.innerHTML = `<li class="sub-empty-state" style="padding: 20px 10px;">No friends added yet</li>`;
     return;
   }
-  
+
   friendsCountEl.textContent = group.friends.length;
 
   group.friends.forEach((friend, idx) => {
     const friendInfo = breakdown[friend.id] || { netBalance: 0 };
     const bal = friendInfo.netBalance;
-    
+
     let balText = 'LKR 0.00';
     let balClass = 'friend-bal-neutral';
     if (bal > 0.009) {
@@ -360,7 +322,7 @@ function renderFriends(group, breakdown) {
     }
 
     const li = document.createElement('li');
-    
+
     // Avatar gradient index determined statically by hashing friend name
     const avatarGradientIdx = Math.abs(hashString(friend.name)) % 6;
 
@@ -397,7 +359,7 @@ function renderFriends(group, breakdown) {
         e.preventDefault();
         const newName = editInput.value.trim();
         if (!newName) return;
-        
+
         // Name unique check (excluding self)
         const duplicate = group.friends.some(f => f.id !== friend.id && f.name.toLowerCase() === newName.toLowerCase());
         if (duplicate) {
@@ -447,18 +409,18 @@ function renderFriends(group, breakdown) {
     btn.addEventListener('click', () => {
       const id = btn.getAttribute('data-id');
       const friendObj = group.friends.find(f => f.id === id);
-      
+
       // Validation Check: Prevent deletion of friends involved in existing expenses
       const isPayer = group.expenses.some(exp => exp.paidBy === id);
       const isParticipant = group.expenses.some(exp => exp.participants.includes(id));
-      
+
       if (isPayer || isParticipant) {
         requestConfirmation(
           `"${friendObj.name}" is involved in active expenses. Deleting them will automatically remove them from splits and reset their transactions. Do you wish to proceed?`,
           () => {
             // Remove friend
             group.friends = group.friends.filter(f => f.id !== id);
-            
+
             // Clean up group expenses:
             // 1. Delete expenses where they are the Payer (since payer is missing)
             group.expenses = group.expenses.filter(exp => exp.paidBy !== id);
@@ -498,16 +460,16 @@ function renderGroups() {
   state.groups.forEach(g => {
     const li = document.createElement('li');
     const isActive = g.id === state.activeGroupId;
-    
+
     li.innerHTML = `
       <button class="group-item ${isActive ? 'active' : ''}" data-id="${g.id}">
         <span class="group-name-text">${escapeHTML(g.name)}</span>
         <span class="badge">${g.friends.length}👤</span>
       </button>
     `;
-    
+
     groupsListEl.appendChild(li);
-    
+
     // Add activation click listener
     li.querySelector('button').addEventListener('click', () => {
       state.activeGroupId = g.id;
@@ -520,7 +482,7 @@ function renderGroups() {
 
 function renderExpenses(group) {
   expensesListEl.innerHTML = '';
-  
+
   if (!group || group.expenses.length === 0) {
     document.getElementById('expenses-empty-state').style.display = 'flex';
     expensesCountEl.textContent = '0';
@@ -672,7 +634,7 @@ function render() {
   renderGroups();
 
   const activeGroup = getActiveGroup();
-  
+
   if (!activeGroup) {
     emptyStateEl.style.display = 'flex';
     dashboardEl.style.display = 'none';
@@ -744,10 +706,10 @@ btnDeleteGroup.addEventListener('click', () => {
 
   requestConfirmation(`Are you sure you want to delete the group "${activeGroup.name}"? This will delete all its friends and expense records.`, () => {
     state.groups = state.groups.filter(g => g.id !== activeGroup.id);
-    
+
     // Switch to first remaining group or empty state
     state.activeGroupId = state.groups.length > 0 ? state.groups[0].id : null;
-    
+
     saveState();
     render();
   });
