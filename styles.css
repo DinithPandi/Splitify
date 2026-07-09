@@ -1130,6 +1130,18 @@ html, body {
   line-height: 1.6;
 }
 
+
+/* Export actions row styling */
+.export-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.export-actions .btn-action-text svg {
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
 /* ==========================================================================
    Responsive Adaptations & Media Queries
    ========================================================================== */
