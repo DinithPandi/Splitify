@@ -37,6 +37,9 @@ function loadState() {
       state = JSON.parse(localData);
       // Fallback/Self-healing checks
       if (!Array.isArray(state.groups)) state.groups = [];
+      state.groups.forEach(g => {
+        if (!g.currency) g.currency = 'LKR';
+      });
       if (state.groups.length > 0 && !state.activeGroupId) {
         state.activeGroupId = state.groups[0].id;
       }
@@ -71,6 +74,12 @@ function initFallbackData() {
 // Get active group object
 function getActiveGroup() {
   return state.groups.find(g => g.id === state.activeGroupId) || null;
+}
+
+// Helper to format currency dynamically based on the group configuration
+function formatMoney(amount, group) {
+  const currency = group ? (group.currency || 'LKR') : 'LKR';
+  return `${currency} ${Number(amount).toFixed(2)}`;
 }
 
 // ==========================================================================
@@ -271,6 +280,7 @@ btnCreateGroupSidebar.addEventListener('click', () => {
   groupModalTitle.textContent = 'Create New Group';
   groupModalId.value = '';
   groupNameInput.value = '';
+  document.getElementById('group-currency-select').value = 'LKR';
   openModal(modalGroup);
 });
 
@@ -278,6 +288,7 @@ btnCreateGroupEmpty.addEventListener('click', () => {
   groupModalTitle.textContent = 'Create New Group';
   groupModalId.value = '';
   groupNameInput.value = '';
+  document.getElementById('group-currency-select').value = 'LKR';
   openModal(modalGroup);
 });
 
@@ -314,13 +325,13 @@ function renderFriends(group, breakdown) {
     const friendInfo = breakdown[friend.id] || { netBalance: 0 };
     const bal = friendInfo.netBalance;
 
-    let balText = 'LKR 0.00';
+    let balText = formatMoney(0, group);
     let balClass = 'friend-bal-neutral';
     if (bal > 0.009) {
-      balText = `receives LKR ${bal.toFixed(2)}`;
+      balText = `receives ${formatMoney(bal, group)}`;
       balClass = 'friend-bal-positive';
     } else if (bal < -0.009) {
-      balText = `owes LKR ${Math.abs(bal).toFixed(2)}`;
+      balText = `owes ${formatMoney(Math.abs(bal), group)}`;
       balClass = 'friend-bal-negative';
     }
 
@@ -477,6 +488,19 @@ function renderGroups() {
     li.querySelector('button').addEventListener('click', () => {
       state.activeGroupId = g.id;
       editingFriendId = null; // reset friend edit
+      
+      // Reset active tab to activity tab
+      const tabBtnAct = document.getElementById('tab-btn-activity');
+      if (tabBtnAct) {
+        tabBtnAct.classList.add('active');
+        const tabBtnSett = document.getElementById('tab-btn-settlements');
+        if (tabBtnSett) tabBtnSett.classList.remove('active');
+        const tabContAct = document.getElementById('tab-content-activity');
+        if (tabContAct) tabContAct.classList.add('active');
+        const tabContSett = document.getElementById('tab-content-settlements');
+        if (tabContSett) tabContSett.classList.remove('active');
+      }
+      
       saveState();
       render();
     });
@@ -525,7 +549,7 @@ function renderExpenses(group) {
           </span>
         </div>
         <div class="expense-value-block">
-          <span class="expense-price">LKR ${Number(exp.amount).toFixed(2)}</span>
+          <span class="expense-price">${formatMoney(exp.amount, group)}</span>
           <div class="friend-actions">
             <button class="btn-icon-small btn-edit-expense-trigger" data-id="${exp.id}" title="Edit Expense">
               <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
@@ -541,7 +565,7 @@ function renderExpenses(group) {
           <span>Split between <span class="split-pill">${splitCount} friends</span></span>
         </div>
         <span class="txt-right" title="${escapeHTML(participantNames)}">
-          LKR ${costPerPerson.toFixed(2)} each
+          ${formatMoney(costPerPerson, group)} each
         </span>
       </div>
     `;
@@ -601,9 +625,9 @@ function renderBalancesAndSettlements(breakdown, settlements, group) {
     const tr = document.createElement('tr');
     tr.innerHTML = `
       <td><div class="balance-table-name" title="${escapeHTML(f.name)}">${escapeHTML(f.name)}</div></td>
-      <td class="txt-right">LKR ${fInfo.totalPaid.toFixed(2)}</td>
-      <td class="txt-right">LKR ${fInfo.totalShare.toFixed(2)}</td>
-      <td class="txt-right ${netClass}"><strong>${prefix}LKR ${Math.abs(net).toFixed(2)}</strong></td>
+      <td class="txt-right">${formatMoney(fInfo.totalPaid, group)}</td>
+      <td class="txt-right">${formatMoney(fInfo.totalShare, group)}</td>
+      <td class="txt-right ${netClass}"><strong>${prefix}${formatMoney(Math.abs(net), group)}</strong></td>
     `;
     balancesTableBodyEl.appendChild(tr);
   });
@@ -624,7 +648,7 @@ function renderBalancesAndSettlements(breakdown, settlements, group) {
             <path d="M18 2L22 6L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
             <path d="M2 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
           </svg>
-          <span class="settle-val">LKR ${settle.amount.toFixed(2)}</span>
+          <span class="settle-val">${formatMoney(settle.amount, group)}</span>
         </div>
         <div class="settle-party txt-right" style="justify-content: flex-end;">
           <span title="${escapeHTML(settle.to)}">${escapeHTML(settle.to)}</span>
@@ -656,7 +680,7 @@ function render() {
   const analysis = processGroupFinancials(activeGroup);
 
   // Update total metrics
-  metricTotalSpentEl.textContent = `LKR ${analysis.totalSpent.toFixed(2)}`;
+  metricTotalSpentEl.textContent = formatMoney(analysis.totalSpent, activeGroup);
 
   // Render components
   renderFriends(activeGroup, analysis.personBreakdown);
@@ -672,18 +696,23 @@ formGroup.addEventListener('submit', (e) => {
   e.preventDefault();
   const name = groupNameInput.value.trim();
   const id = groupModalId.value;
+  const currency = document.getElementById('group-currency-select').value;
 
   if (!name) return;
 
   if (id) {
-    // Editing existing group name
+    // Editing existing group name & currency
     const group = state.groups.find(g => g.id === id);
-    if (group) group.name = name;
+    if (group) {
+      group.name = name;
+      group.currency = currency;
+    }
   } else {
     // Create new group
     const newGroup = {
       id: generateId(),
       name: name,
+      currency: currency,
       friends: [],
       expenses: []
     };
@@ -700,9 +729,10 @@ btnEditGroup.addEventListener('click', () => {
   const activeGroup = getActiveGroup();
   if (!activeGroup) return;
 
-  groupModalTitle.textContent = 'Rename Group';
+  groupModalTitle.textContent = 'Rename & Edit Group';
   groupModalId.value = activeGroup.id;
   groupNameInput.value = activeGroup.name;
+  document.getElementById('group-currency-select').value = activeGroup.currency || 'LKR';
   openModal(modalGroup);
 });
 
@@ -766,6 +796,13 @@ function openExpenseModal(expenseId = null) {
   if (group.friends.length === 0) {
     alert('Please add friends to the group first before posting expenses.');
     return;
+  }
+
+  // Set local currency label dynamically
+  const currency = group.currency || 'LKR';
+  const amountLabel = document.querySelector('label[for="expense-amount-input"]');
+  if (amountLabel) {
+    amountLabel.innerHTML = `Amount (${currency}) <span class="required">*</span>`;
   }
 
   // Clear Payer selector & share grid
@@ -1000,7 +1037,7 @@ function exportSettlements(format) {
               <path d="M18 2L22 6L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
               <path d="M2 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
             </svg>
-            <span style="font-size: 0.65rem; font-weight: 700; background: rgba(124, 58, 237, 0.2); padding: 2px 6px; border-radius: 4px; color: #f8fafc; border: 1px solid rgba(124, 58, 237, 0.3); margin-top: 4px; white-space: nowrap;">LKR ${settle.amount.toFixed(2)}</span>
+            <span style="font-size: 0.65rem; font-weight: 700; background: rgba(124, 58, 237, 0.2); padding: 2px 6px; border-radius: 4px; color: #f8fafc; border: 1px solid rgba(124, 58, 237, 0.3); margin-top: 4px; white-space: nowrap;">${formatMoney(settle.amount, activeGroup)}</span>
           </div>
           <div style="display: flex; align-items: center; justify-content: flex-end; font-weight: 600; max-width: 40%; text-align: right;">
             <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(settle.to)}">${escapeHTML(settle.to)}</span>
@@ -1080,6 +1117,28 @@ if (btnExportPdfEl) {
 // ==========================================================================
 // App Bootstrapping
 // ==========================================================================
+
+// Tab Switching Event Listeners
+const tabBtnActivity = document.getElementById('tab-btn-activity');
+const tabBtnSettlements = document.getElementById('tab-btn-settlements');
+const tabContentActivity = document.getElementById('tab-content-activity');
+const tabContentSettlements = document.getElementById('tab-content-settlements');
+
+if (tabBtnActivity && tabBtnSettlements) {
+  tabBtnActivity.addEventListener('click', () => {
+    tabBtnActivity.classList.add('active');
+    tabBtnSettlements.classList.remove('active');
+    tabContentActivity.classList.add('active');
+    tabContentSettlements.classList.remove('active');
+  });
+
+  tabBtnSettlements.addEventListener('click', () => {
+    tabBtnSettlements.classList.add('active');
+    tabBtnActivity.classList.remove('active');
+    tabContentSettlements.classList.add('active');
+    tabContentActivity.classList.remove('active');
+  });
+}
 
 window.addEventListener('DOMContentLoaded', () => {
   loadState();
