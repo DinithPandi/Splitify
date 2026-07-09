@@ -193,6 +193,9 @@ const friendsListEl = document.getElementById('friends-list');
 const expensesListEl = document.getElementById('expenses-list');
 const settlementsContainerEl = document.getElementById('settlements-container');
 const balancesTableBodyEl = document.getElementById('balances-table-body');
+const exportActionsWrapperEl = document.getElementById('export-actions-wrapper');
+const btnExportImageEl = document.getElementById('btn-export-image');
+const btnExportPdfEl = document.getElementById('btn-export-pdf');
 
 // Stats Counters
 const friendsCountEl = document.getElementById('friends-count');
@@ -574,8 +577,11 @@ function renderBalancesAndSettlements(breakdown, settlements, group) {
   if (!group || group.friends.length === 0) {
     balancesTableBodyEl.innerHTML = `<tr><td colspan="4" class="sub-empty-state">No balances to calculate</td></tr>`;
     settlementsContainerEl.innerHTML = `<div class="settle-empty">Add friends and expenses to calculate settlements!</div>`;
+    if (exportActionsWrapperEl) exportActionsWrapperEl.style.display = 'none';
     return;
   }
+
+  if (exportActionsWrapperEl) exportActionsWrapperEl.style.display = 'flex';
 
   // Populate Balances Table
   group.friends.forEach(f => {
@@ -913,6 +919,162 @@ function escapeHTML(str) {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&#039;');
+}
+
+// ==========================================================================
+// Settlements Export Controller
+// ==========================================================================
+
+function exportSettlements(format) {
+  const activeGroup = getActiveGroup();
+  if (!activeGroup) return;
+
+  const analysis = processGroupFinancials(activeGroup);
+  const settlements = analysis.settlements;
+
+  // Format today's date
+  const todayStr = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  // Create temporary container
+  const exportCard = document.createElement('div');
+  exportCard.id = 'splitify-export-card';
+  
+  // Apply beautiful inline styles matching Splitify's premium UI
+  exportCard.style.position = 'absolute';
+  exportCard.style.left = '-9999px';
+  exportCard.style.top = '0';
+  exportCard.style.width = '480px';
+  exportCard.style.padding = '32px';
+  exportCard.style.borderRadius = '16px';
+  exportCard.style.background = 'linear-gradient(135deg, #111827 0%, #030712 100%)';
+  exportCard.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+  exportCard.style.color = '#f8fafc';
+  exportCard.style.fontFamily = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+  exportCard.style.boxSizing = 'border-box';
+  exportCard.style.display = 'flex';
+  exportCard.style.flexDirection = 'column';
+  exportCard.style.gap = '24px';
+
+  // Build header HTML
+  let cardHtml = `
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; color: #8b5cf6;">
+          <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" fill="currentColor"/>
+        </svg>
+        <span style="font-weight: 800; font-size: 1.1rem; letter-spacing: -0.025em; color: #f8fafc;">Splitify</span>
+      </div>
+      <span style="font-size: 0.75rem; color: #64748b; font-weight: 500;">${todayStr}</span>
+    </div>
+
+    <!-- Title and Group Info -->
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #8b5cf6; font-weight: 700;">Group Balance Settlements</span>
+      <h2 style="font-size: 1.5rem; font-weight: 800; color: #f8fafc; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHTML(activeGroup.name)}</h2>
+    </div>
+
+    <!-- Settlements Container -->
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+  `;
+
+  if (settlements.length === 0) {
+    cardHtml += `
+      <div style="text-align: center; padding: 32px 20px; background: rgba(16, 185, 129, 0.08); border: 1px solid rgba(16, 185, 129, 0.2); border-radius: 10px; color: #10b981; font-weight: 600; font-size: 0.95rem;">
+        ✨ All balances settled! No transfers needed.
+      </div>
+    `;
+  } else {
+    settlements.forEach(settle => {
+      cardHtml += `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: rgba(124, 58, 237, 0.05); border: 1px solid rgba(124, 58, 237, 0.12); border-radius: 10px; font-size: 0.85rem;">
+          <div style="display: flex; align-items: center; font-weight: 600; max-width: 40%;">
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(settle.from)}">${escapeHTML(settle.from)}</span>
+          </div>
+          <div style="display: flex; flex-direction: column; align-items: center; flex: 1; padding: 0 8px;">
+            <svg width="24" height="12" viewBox="0 0 24 12" fill="none" xmlns="http://www.w3.org/2000/svg" style="color: #8b5cf6;">
+              <path d="M18 2L22 6L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M2 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+            </svg>
+            <span style="font-size: 0.65rem; font-weight: 700; background: rgba(124, 58, 237, 0.2); padding: 2px 6px; border-radius: 4px; color: #f8fafc; border: 1px solid rgba(124, 58, 237, 0.3); margin-top: 4px; white-space: nowrap;">LKR ${settle.amount.toFixed(2)}</span>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: flex-end; font-weight: 600; max-width: 40%; text-align: right;">
+            <span style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(settle.to)}">${escapeHTML(settle.to)}</span>
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  cardHtml += `
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+      <span style="font-size: 0.7rem; color: #64748b;">Keep track & split bills effortlessly</span>
+      <span style="font-size: 0.75rem; font-weight: 700; color: #8b5cf6;">splitify.app</span>
+    </div>
+  `;
+
+  exportCard.innerHTML = cardHtml;
+  document.body.appendChild(exportCard);
+
+  // Set loading cursor
+  document.body.style.cursor = 'wait';
+
+  // Wait a small delay to make sure rendering is finished
+  setTimeout(() => {
+    html2canvas(exportCard, {
+      scale: 2,
+      backgroundColor: null,
+      useCORS: true,
+      logging: false
+    }).then(canvas => {
+      document.body.style.cursor = 'default';
+      const safeGroupName = activeGroup.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+      if (format === 'image') {
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `${safeGroupName}_settlements.png`;
+        link.href = dataUrl;
+        link.click();
+      } else if (format === 'pdf') {
+        const imgData = canvas.toDataURL('image/png');
+        const pdfWidth = 480;
+        const pdfHeight = (canvas.height / canvas.width) * pdfWidth;
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF({
+          orientation: 'portrait',
+          unit: 'pt',
+          format: [pdfWidth, pdfHeight]
+        });
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        pdf.save(`${safeGroupName}_settlements.pdf`);
+      }
+
+      // Cleanup
+      document.body.removeChild(exportCard);
+    }).catch(err => {
+      console.error('Failed to export settlements:', err);
+      document.body.style.cursor = 'default';
+      alert('An error occurred during export.');
+      if (document.getElementById('splitify-export-card')) {
+        document.body.removeChild(exportCard);
+      }
+    });
+  }, 100);
+}
+
+if (btnExportImageEl) {
+  btnExportImageEl.addEventListener('click', () => exportSettlements('image'));
+}
+if (btnExportPdfEl) {
+  btnExportPdfEl.addEventListener('click', () => exportSettlements('pdf'));
 }
 
 // ==========================================================================
