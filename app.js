@@ -63,44 +63,7 @@ function initFallbackData() {
   const f4 = generateId();
 
   state = {
-    groups: [
-      {
-        id: demoGroupId,
-        name: 'Apartment Roomies 🏠',
-        friends: [
-          { id: f1, name: 'Alex' },
-          { id: f2, name: 'Jamie' },
-          { id: f3, name: 'Morgan' },
-          { id: f4, name: 'Taylor' }
-        ],
-        expenses: [
-          {
-            id: generateId(),
-            description: 'Weekly Groceries',
-            amount: 120.00,
-            paidBy: f1,
-            participants: [f1, f2, f3, f4],
-            date: '2026-07-06'
-          },
-          {
-            id: generateId(),
-            description: 'Electricity Bill',
-            amount: 80.00,
-            paidBy: f2,
-            participants: [f1, f2, f3, f4],
-            date: '2026-07-07'
-          },
-          {
-            id: generateId(),
-            description: 'Morgan\'s Birthday Dinner',
-            amount: 150.00,
-            paidBy: f3,
-            participants: [f1, f2, f4], //Morgan doesn't pay for own birthday dinner
-            date: '2026-07-07'
-          }
-        ]
-      }
-    ],
+    
     activeGroupId: demoGroupId
   };
   saveState();
