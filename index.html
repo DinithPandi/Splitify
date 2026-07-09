@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Splitify - Smart Expense Splitter</title>
+  <!-- Google Fonts: Plus Jakarta Sans -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap"
+    rel="stylesheet">
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+  <!-- Background Decoration Gradients -->
+  <div class="bg-glow bg-glow-1"></div>
+  <div class="bg-glow bg-glow-2"></div>
+
+  <!-- Main Container -->
+  <div class="app-container">
+    <!-- Sidebar / Group Selector -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="logo">
+          <svg class="logo-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path
+              d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z"
+              fill="currentColor" />
+          </svg>
+          <span>Splitify</span>
+        </div>
+      </div>
+
+      <div class="sidebar-content">
+        <div class="sidebar-section">
+          <div class="section-title-row">
+            <h3>Groups</h3>
+            <button id="btn-create-group-sidebar" class="btn-icon-small" title="Create New Group">
+              <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+            </button>
+          </div>
+          <ul id="groups-list" class="groups-list">
+            <!-- Dynamically populated -->
+          </ul>
+        </div>
+      </div>
+
+      <div class="sidebar-footer">
+        <p class="copyright">&copy; 2026 Splitify App</p>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Empty State: No Group Selected -->
+      <div id="empty-state" class="empty-state card">
+        <div class="empty-icon-wrapper">
+          <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round"
+              d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94-3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+          </svg>
+        </div>
+        <h2>Welcome to Splitify</h2>
+        <p>Keep track of shared expenses, split bills effortlessly, and settle balances with friends. Create a new group
+          to get started!</p>
+        <button id="btn-create-group-empty" class="btn btn-primary">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"
+            style="margin-right: 8px;">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+          </svg>
+          Create a Group
+        </button>
+      </div>
+
+      <!-- Dashboard View: When Group is Active -->
+      <div id="group-dashboard" class="dashboard-grid" style="display: none;">
+        <!-- Dashboard Header -->
+        <header class="dashboard-header card">
+          <div class="header-details">
+            <h1 id="active-group-name">Group Name</h1>
+            <div class="header-actions">
+              <button id="btn-edit-group" class="btn-action-text" title="Edit Group Name">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9"></path>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+                </svg>
+                Rename
+              </button>
+              <button id="btn-delete-group" class="btn-action-text danger" title="Delete Group">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"></polyline>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                  <line x1="10" y1="11" x2="10" y2="17"></line>
+                  <line x1="14" y1="11" x2="14" y2="17"></line>
+                </svg>
+                Delete Group
+              </button>
+            </div>
+          </div>
+          <div class="header-metrics">
+            <div class="metric">
+              <span class="metric-label">Total Spent</span>
+              <span id="metric-total-spent" class="metric-val">LKR 0.00</span>
+            </div>
+            <button id="btn-add-expense-trigger" class="btn btn-primary btn-glow-anim">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+                <line x1="12" y1="5" x2="12" y2="19"></line>
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+              </svg>
+              Add Expense
+            </button>
+          </div>
+        </header>
+
+        <!-- Main Workspace: 3 Column Layout (Mobile transitions to stacked) -->
+        <div class="workspace-grid">
+
+          <!-- Column 1: Friends Manager -->
+          <section class="workspace-col card col-friends">
+            <div class="col-header">
+              <h2>Friends</h2>
+              <span id="friends-count" class="badge">0</span>
+            </div>
+
+            <!-- Quick Add Friend Form -->
+            <form id="form-add-friend" class="quick-add-form">
+              <div class="input-group-inline">
+                <input type="text" id="friend-name-input" placeholder="Friend's name..." required>
+                <button type="submit" class="btn btn-accent btn-square" title="Add Friend">
+                  <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                </button>
+              </div>
+            </form>
+
+            <!-- Friends list container -->
+            <div class="friends-list-wrapper">
+              <ul id="friends-list" class="friends-interactive-list">
+                <!-- Dynamically populated -->
+              </ul>
+              <!-- Inline edit friend container (reusable template or triggered inline) -->
+            </div>
+          </section>
+
+          <!-- Column 2: Expense Ledger -->
+          <section class="workspace-col card col-expenses">
+            <div class="col-header">
+              <h2>Expenses</h2>
+              <span id="expenses-count" class="badge">0</span>
+            </div>
+
+            <div class="expenses-list-wrapper">
+              <div id="expenses-empty-state" class="sub-empty-state">
+                <p>No expenses added yet. Tap "Add Expense" to get started splitting!</p>
+              </div>
+              <ul id="expenses-list" class="expenses-ledger-list">
+                <!-- Dynamically populated -->
+              </ul>
+            </div>
+          </section>
+
+          <!-- Column 3: Balance Summaries & Settle Plan -->
+          <section class="workspace-col card col-summary">
+            <div class="col-header">
+              <h2>Settlement & Balances</h2>
+            </div>
+
+            <!-- Balance Table Summary -->
+            <div class="summary-section">
+              <h3>Balance Sheets</h3>
+              <div class="table-container">
+                <table class="balance-table">
+                  <thead>
+                    <tr>
+                      <th>Friend</th>
+                      <th class="txt-right">Paid</th>
+                      <th class="txt-right">Share</th>
+                      <th class="txt-right">Net</th>
+                    </tr>
+                  </thead>
+                  <tbody id="balances-table-body">
+                    <!-- Dynamically populated -->
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <!-- Who Owes Whom Summary -->
+            <div class="summary-section settle-section">
+              <h3>Who Owes Whom</h3>
+              <div id="settlements-container" class="settlements-container">
+                <!-- Dynamically populated (e.g. John pays Sarah LKR 20.00) -->
+              </div>
+            </div>
+          </section>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Modals Layer -->
+
+  <!-- Group Modal (Create/Edit) -->
+  <div id="modal-group" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="group-modal-title">Create New Group</h2>
+        <button class="btn-close-modal">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <form id="form-group" class="modal-form">
+        <input type="hidden" id="group-modal-id">
+        <div class="form-group">
+          <label for="group-name-input">Group Name</label>
+          <input type="text" id="group-name-input" placeholder="e.g. Road Trip, Roomies" required max="40">
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Group</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Expense Modal (Add/Edit) -->
+  <div id="modal-expense" class="modal-overlay">
+    <div class="modal-card modal-large">
+      <div class="modal-header">
+        <h2 id="expense-modal-title">Add Expense</h2>
+        <button class="btn-close-modal">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+          </svg>
+        </button>
+      </div>
+      <form id="form-expense" class="modal-form">
+        <input type="hidden" id="expense-modal-id">
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="expense-desc-input">Description (Optional)</label>
+            <input type="text" id="expense-desc-input" placeholder="e.g. Dinner, Uber, Groceries" max="60">
+          </div>
+
+          <div class="form-group">
+            <label for="expense-amount-input">Amount (LKR) <span class="required">*</span></label>
+            <input type="number" id="expense-amount-input" step="0.01" min="0.01" placeholder="0.00" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="expense-payer-select">Who Paid? <span class="required">*</span></label>
+          <select id="expense-payer-select" required>
+            <!-- Dynamically populated list of friends -->
+          </select>
+        </div>
+
+        <div class="form-group select-share-group">
+          <div class="share-header">
+            <label>Split Between <span class="required">*</span></label>
+            <div class="share-helpers">
+              <button type="button" id="btn-share-select-all" class="btn-link">Select All</button>
+              <span class="divider">|</span>
+              <button type="button" id="btn-share-clear-all" class="btn-link">Clear All</button>
+            </div>
+          </div>
+          <div id="expense-share-checkboxes" class="checkbox-grid">
+            <!-- Dynamically populated friend checkboxes -->
+          </div>
+          <div id="expense-share-error" class="error-text" style="display: none;">You must select at least one person to
+            share this expense.</div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary btn-close-modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Expense</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Delete Confirm Modal -->
+  <div id="modal-confirm" class="modal-overlay">
+    <div class="modal-card modal-alert">
+      <div class="modal-header">
+        <h2>Are you absolutely sure?</h2>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-modal-text">This action cannot be undone.</p>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-confirm-cancel" class="btn btn-secondary">Cancel</button>
+        <button id="btn-confirm-submit" class="btn btn-danger">Yes, Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JS Files -->
+  <script src="app.js?v=2"></script>
+</body>
+
+</html>
