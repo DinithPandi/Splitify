@@ -204,7 +204,7 @@ const settlementsContainerEl = document.getElementById('settlements-container');
 const balancesTableBodyEl = document.getElementById('balances-table-body');
 const exportActionsWrapperEl = document.getElementById('export-actions-wrapper');
 const btnExportImageEl = document.getElementById('btn-export-image');
-const btnExportPdfEl = document.getElementById('btn-export-pdf');
+const btnExportWhatsappEl = document.getElementById('btn-export-whatsapp');
 
 // Stats Counters
 const friendsCountEl = document.getElementById('friends-count');
@@ -958,6 +958,36 @@ function escapeHTML(str) {
     .replace(/'/g, '&#039;');
 }
 
+// Helper to share text summary and download image to WhatsApp
+function fallbackWhatsAppShare(settlements, activeGroup, blob) {
+  // 1. Download the image so the user has it ready
+  const safeGroupName = activeGroup.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const dataUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `${safeGroupName}_settlements.png`;
+  link.href = dataUrl;
+  link.click();
+  URL.revokeObjectURL(dataUrl);
+
+  // 2. Prepare text message
+  let text = `*Splitify Settlements for "${activeGroup.name}"*\n`;
+  text += `Date: ${new Date().toLocaleDateString()}\n\n`;
+  if (settlements.length === 0) {
+    text += `✨ All balances settled! No transfers needed.`;
+  } else {
+    settlements.forEach(settle => {
+      const amountStr = formatMoney(settle.amount, activeGroup);
+      text += `• *${settle.from}*  👉  *${settle.to}*:  _${amountStr}_\n`;
+    });
+  }
+  text += `\n_Image settlements saved to your downloads._`;
+
+  // 3. Open WhatsApp link
+  const encodedText = encodeURIComponent(text);
+  const waUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+  window.open(waUrl, '_blank');
+}
+
 // ==========================================================================
 // Settlements Export Controller
 // ==========================================================================
@@ -1080,18 +1110,26 @@ function exportSettlements(format) {
         link.download = `${safeGroupName}_settlements.png`;
         link.href = dataUrl;
         link.click();
-      } else if (format === 'pdf') {
-        const imgData = canvas.toDataURL('image/png');
-        const pdfWidth = 480;
-        const pdfHeight = (canvas.height / canvas.width) * pdfWidth;
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF({
-          orientation: 'portrait',
-          unit: 'pt',
-          format: [pdfWidth, pdfHeight]
-        });
-        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        pdf.save(`${safeGroupName}_settlements.pdf`);
+      } else if (format === 'whatsapp') {
+        canvas.toBlob(blob => {
+          if (!blob) {
+            alert('Failed to generate settlements image.');
+            return;
+          }
+          const file = new File([blob], `${safeGroupName}_settlements.png`, { type: 'image/png' });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+              files: [file],
+              title: `${activeGroup.name} Settlements`,
+              text: 'Check out our settlements!'
+            }).catch(err => {
+              console.error('Web Share failed:', err);
+              fallbackWhatsAppShare(settlements, activeGroup, blob);
+            });
+          } else {
+            fallbackWhatsAppShare(settlements, activeGroup, blob);
+          }
+        }, 'image/png');
       }
 
       // Cleanup
@@ -1110,8 +1148,8 @@ function exportSettlements(format) {
 if (btnExportImageEl) {
   btnExportImageEl.addEventListener('click', () => exportSettlements('image'));
 }
-if (btnExportPdfEl) {
-  btnExportPdfEl.addEventListener('click', () => exportSettlements('pdf'));
+if (btnExportWhatsappEl) {
+  btnExportWhatsappEl.addEventListener('click', () => exportSettlements('whatsapp'));
 }
 
 // ==========================================================================
