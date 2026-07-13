@@ -16,8 +16,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
-// Serve static files from the current folder
-app.use(express.static(path.join(__dirname)));
+// Serve static files from the parent root folder
+app.use(express.static(path.join(__dirname, '..')));
 
 // MongoDB Client Connection
 let db = null;
@@ -95,7 +95,8 @@ app.post('/api/auth/signup', async (req, res) => {
     // Set secure cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // Always true for Vercel production SSL
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
@@ -135,7 +136,8 @@ app.post('/api/auth/login', async (req, res) => {
     // Set secure cookie
     res.cookie('token', token, {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: true, // Always true for Vercel production SSL
+      sameSite: 'lax',
       maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
 
@@ -250,9 +252,14 @@ app.delete('/api/groups/:id', authenticateUser, async (req, res) => {
 
 // Serve frontend main page on any other route for SPA compatibility
 app.get('/*splat', (req, res) => {
-  res.sendFile(path.join(__dirname, 'index.html'));
+  res.sendFile(path.join(__dirname, '..', 'index.html'));
 });
 
-app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
-});
+// Local listening hook (ignored by Vercel serverless environment)
+if (require.main === module || !process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+  });
+}
+
+module.exports = app;
