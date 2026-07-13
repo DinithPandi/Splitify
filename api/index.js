@@ -21,20 +21,28 @@ app.use(express.static(path.join(__dirname, '..')));
 
 // MongoDB Client Connection
 let db = null;
+let connectionPromise = null;
 const client = new MongoClient(MONGO_URI);
 
-async function connectDB() {
-  try {
-    await client.connect();
-    db = client.db(); // Uses db name from URI path (splitify)
-    console.log('Connected successfully to MongoDB');
-  } catch (err) {
-    console.error('Failed to connect to MongoDB', err);
-    process.exit(1);
-  }
-}
+async function getDatabase() {
+  if (db) return db;
 
-connectDB();
+  if (!connectionPromise) {
+    connectionPromise = client.connect()
+      .then(() => {
+        db = client.db();
+        console.log('Connected successfully to MongoDB');
+        return db;
+      })
+      .catch(err => {
+        connectionPromise = null;
+        console.error('Failed to connect to MongoDB', err);
+        throw err;
+      });
+  }
+
+  return connectionPromise;
+}
 
 // Authentication Middleware
 const authenticateUser = async (req, res, next) => {
@@ -66,7 +74,8 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 
   try {
-    const usersCollection = db.collection('users');
+    const database = await getDatabase();
+    const usersCollection = database.collection('users');
 
     // Check if user already exists
     const existingUser = await usersCollection.findOne({ email: email.toLowerCase() });
@@ -116,7 +125,8 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    const usersCollection = db.collection('users');
+    const database = await getDatabase();
+    const usersCollection = database.collection('users');
 
     // Find user
     const user = await usersCollection.findOne({ email: email.toLowerCase() });
@@ -176,7 +186,8 @@ app.post('/api/auth/logout', (req, res) => {
 // Get all groups for authenticated user
 app.get('/api/groups', authenticateUser, async (req, res) => {
   try {
-    const groupsCollection = db.collection('groups');
+    const database = await getDatabase();
+    const groupsCollection = database.collection('groups');
     const groups = await groupsCollection.find({ userId: req.userId }).toArray();
 
     // Map _id (MongoDB primary key) to id for frontend compatibility
@@ -204,7 +215,8 @@ app.post('/api/groups', authenticateUser, async (req, res) => {
   }
 
   try {
-    const groupsCollection = db.collection('groups');
+    const database = await getDatabase();
+    const groupsCollection = database.collection('groups');
 
     // Update document using frontend ID as MongoDB _id
     await groupsCollection.updateOne(
@@ -236,7 +248,8 @@ app.delete('/api/groups/:id', authenticateUser, async (req, res) => {
   }
 
   try {
-    const groupsCollection = db.collection('groups');
+    const database = await getDatabase();
+    const groupsCollection = database.collection('groups');
     const result = await groupsCollection.deleteOne({ _id: groupId, userId: req.userId });
 
     if (result.deletedCount === 0) {
