@@ -29,13 +29,37 @@ let state = {
 // Local Storage Keys
 const STORAGE_KEY = 'splitify_data';
 
-// Load State from Local Storage
-function loadState() {
+// Load State from Server & Fallback to Local Storage
+async function loadState() {
+  try {
+    const res = await fetch('/api/groups');
+    if (res.ok) {
+      const serverGroups = await res.json();
+      state.groups = serverGroups;
+      if (state.groups.length > 0) {
+        if (!state.activeGroupId || !state.groups.some(g => g.id === state.activeGroupId)) {
+          state.activeGroupId = state.groups[0].id;
+        }
+      } else {
+        state.activeGroupId = null;
+      }
+      // Sync cache
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    } else {
+      console.error('Failed to load groups from server');
+      loadStateLocalFallback();
+    }
+  } catch (err) {
+    console.error('Error loading state from server:', err);
+    loadStateLocalFallback();
+  }
+}
+
+function loadStateLocalFallback() {
   const localData = localStorage.getItem(STORAGE_KEY);
   if (localData) {
     try {
       state = JSON.parse(localData);
-      // Fallback/Self-healing checks
       if (!Array.isArray(state.groups)) state.groups = [];
       state.groups.forEach(g => {
         if (!g.currency) g.currency = 'LKR';
@@ -44,17 +68,34 @@ function loadState() {
         state.activeGroupId = state.groups[0].id;
       }
     } catch (e) {
-      console.error('Failed to parse local storage', e);
-      initFallbackData();
+      console.error('Failed to parse local storage fallback', e);
     }
-  } else {
-    initFallbackData();
   }
 }
 
-// Save State to Local Storage
-function saveState() {
+// Save State to Server & Cache in Local Storage
+async function saveState(deletedGroupId = null) {
+  // Always update local cache instantly for responsive feel
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+
+  try {
+    if (deletedGroupId) {
+      await fetch(`/api/groups/${deletedGroupId}`, {
+        method: 'DELETE'
+      });
+    } else {
+      const activeGroup = getActiveGroup();
+      if (activeGroup) {
+        await fetch('/api/groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(activeGroup)
+        });
+      }
+    }
+  } catch (err) {
+    console.error('Failed to sync changes with MongoDB server:', err);
+  }
 }
 
 // Initialize fallback/default demo data to wow user on start
@@ -741,12 +782,13 @@ btnDeleteGroup.addEventListener('click', () => {
   if (!activeGroup) return;
 
   requestConfirmation(`Are you sure you want to delete the group "${activeGroup.name}"? This will delete all its friends and expense records.`, () => {
+    const idToDelete = activeGroup.id;
     state.groups = state.groups.filter(g => g.id !== activeGroup.id);
 
     // Switch to first remaining group or empty state
     state.activeGroupId = state.groups.length > 0 ? state.groups[0].id : null;
 
-    saveState();
+    saveState(idToDelete);
     render();
   });
 });
@@ -1178,7 +1220,185 @@ if (tabBtnActivity && tabBtnSettlements) {
   });
 }
 
+// ==========================================================================
+// Authentication & Sync Flow Controller
+// ==========================================================================
+
+const authContainerEl = document.getElementById('auth-container');
+const appContainerEl = document.getElementById('app-container');
+const userProfileNameEl = document.getElementById('user-profile-name');
+const btnLogoutEl = document.getElementById('btn-logout');
+
+const tabLoginBtn = document.getElementById('tab-login');
+const tabSignupBtn = document.getElementById('tab-signup');
+const formLoginEl = document.getElementById('form-login');
+const formSignupEl = document.getElementById('form-signup');
+
+const loginEmailInput = document.getElementById('login-email');
+const loginPasswordInput = document.getElementById('login-password');
+const signupUsernameInput = document.getElementById('signup-username');
+const signupEmailInput = document.getElementById('signup-email');
+const signupPasswordInput = document.getElementById('signup-password');
+
+const loginErrorEl = document.getElementById('login-error');
+const signupErrorEl = document.getElementById('signup-error');
+
+// Verify current session
+async function checkAuth() {
+  try {
+    const res = await fetch('/api/auth/me');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.authenticated) {
+        // Authenticated view
+        authContainerEl.style.display = 'none';
+        appContainerEl.style.display = 'flex';
+        userProfileNameEl.textContent = data.username;
+        
+        // Load groups from server and render
+        await loadState();
+        render();
+        return;
+      }
+    }
+  } catch (err) {
+    console.error('Session check failed:', err);
+  }
+
+  // Unauthenticated view
+  appContainerEl.style.display = 'none';
+  authContainerEl.style.display = 'flex';
+}
+
+// Upload existing localStorage data to user account (Migration Helper)
+async function migrateLocalStorageData() {
+  const localData = localStorage.getItem(STORAGE_KEY);
+  if (!localData) return;
+
+  try {
+    const parsed = JSON.parse(localData);
+    if (parsed && Array.isArray(parsed.groups) && parsed.groups.length > 0) {
+      console.log('Migrating guest groups to MongoDB...');
+      for (const group of parsed.groups) {
+        await fetch('/api/groups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(group)
+        });
+      }
+      // Clear local storage data so it doesn't double migrate
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch (e) {
+    console.error('Migration failed:', e);
+  }
+}
+
+// Bind auth UI events
+function initAuth() {
+  // Tab Switching
+  tabLoginBtn.addEventListener('click', () => {
+    tabLoginBtn.classList.add('active');
+    tabSignupBtn.classList.remove('active');
+    formLoginEl.classList.add('active');
+    formSignupEl.classList.remove('active');
+    loginErrorEl.style.display = 'none';
+  });
+
+  tabSignupBtn.addEventListener('click', () => {
+    tabSignupBtn.classList.add('active');
+    tabLoginBtn.classList.remove('active');
+    formSignupEl.classList.add('active');
+    formLoginEl.classList.remove('active');
+    signupErrorEl.style.display = 'none';
+  });
+
+  // Login Form Submission
+  formLoginEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    loginErrorEl.style.display = 'none';
+
+    const email = loginEmailInput.value.trim();
+    const password = loginPasswordInput.value;
+
+    try {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Successful login
+        loginEmailInput.value = '';
+        loginPasswordInput.value = '';
+        await checkAuth();
+      } else {
+        loginErrorEl.textContent = data.error || 'Invalid credentials';
+        loginErrorEl.style.display = 'block';
+      }
+    } catch (err) {
+      console.error('Login submit error:', err);
+      loginErrorEl.textContent = 'Server connection failed';
+      loginErrorEl.style.display = 'block';
+    }
+  });
+
+  // Signup Form Submission
+  formSignupEl.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    signupErrorEl.style.display = 'none';
+
+    const username = signupUsernameInput.value.trim();
+    const email = signupEmailInput.value.trim();
+    const password = signupPasswordInput.value;
+
+    try {
+      const res = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, email, password })
+      });
+
+      const data = await res.json();
+      if (res.ok && data.success) {
+        // Successful registration, check if guest data exists to migrate
+        signupUsernameInput.value = '';
+        signupEmailInput.value = '';
+        signupPasswordInput.value = '';
+        
+        await migrateLocalStorageData();
+        await checkAuth();
+      } else {
+        signupErrorEl.textContent = data.error || 'Failed to create account';
+        signupErrorEl.style.display = 'block';
+      }
+    } catch (err) {
+      console.error('Signup submit error:', err);
+      signupErrorEl.textContent = 'Server connection failed';
+      signupErrorEl.style.display = 'block';
+    }
+  });
+
+  // Logout Click
+  btnLogoutEl.addEventListener('click', async () => {
+    try {
+      const res = await fetch('/api/auth/logout', { method: 'POST' });
+      if (res.ok) {
+        state = { groups: [], activeGroupId: null };
+        localStorage.removeItem(STORAGE_KEY);
+        await checkAuth();
+      }
+    } catch (err) {
+      console.error('Logout failed:', err);
+    }
+  });
+
+  // Perform initial session validation
+  checkAuth();
+}
+
 window.addEventListener('DOMContentLoaded', () => {
-  loadState();
-  render();
+  initAuth();
 });
