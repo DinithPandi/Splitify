@@ -196,7 +196,8 @@ app.get('/api/groups', authenticateUser, async (req, res) => {
       name: g.name,
       currency: g.currency || 'LKR',
       friends: g.friends || [],
-      expenses: g.expenses || []
+      expenses: g.expenses || [],
+      groupType: g.groupType || 'split'
     }));
 
     res.json(clientGroups);
@@ -226,7 +227,8 @@ app.post('/api/groups', authenticateUser, async (req, res) => {
           name: group.name,
           currency: group.currency || 'LKR',
           friends: group.friends || [],
-          expenses: group.expenses || []
+          expenses: group.expenses || [],
+          groupType: group.groupType || 'split'
         }
       },
       { upsert: true }
