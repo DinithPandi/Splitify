@@ -1515,3 +1515,101 @@ html, body {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+
+/* ==========================================================================
+   Group Type & Mock Budget Styles
+   ========================================================================== */
+.group-type-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.type-option-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.type-option-card:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+
+.type-option-card input[type="radio"] {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  accent-color: var(--color-primary);
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+.type-option-card:has(input[type="radio"]:checked) {
+  border-color: var(--color-primary);
+  background: rgba(124, 58, 237, 0.08);
+  box-shadow: 0 0 12px var(--color-primary-glow);
+}
+
+.option-card-content {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 20px;
+}
+
+.option-title {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: var(--text-main);
+}
+
+.option-desc {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.3;
+}
+
+/* Badges & Sidebar Indicators for Budget mode */
+.badge-type-budget {
+  display: inline-block;
+  font-size: 0.65rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(124, 58, 237, 0.15);
+  color: #a855f7;
+  border: 1px solid rgba(124, 58, 237, 0.3);
+  margin-left: 10px;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+}
+
+.groups-list .group-item-budget {
+  border-left: 3px solid rgba(124, 58, 237, 0.35);
+}
+
+.groups-list .group-item-budget.active {
+  border-left: 3px solid var(--color-primary);
+}
+
+.budget-info-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  border: 1px dashed var(--border-color);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.01);
+  text-align: center;
+}

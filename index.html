@@ -204,7 +204,7 @@
           </div>
           <div class="header-metrics">
             <div class="metric">
-              <span class="metric-label">Total Spent</span>
+              <span id="metric-total-spent-label" class="metric-label">Total Spent</span>
               <span id="metric-total-spent" class="metric-val">LKR 0.00</span>
             </div>
             <button id="btn-add-expense-trigger" class="btn btn-primary btn-glow-anim">
@@ -366,6 +366,25 @@
           <label for="group-name-input">Group Name</label>
           <input type="text" id="group-name-input" placeholder="e.g. Road Trip, Roomies" required max="40">
         </div>
+        <div class="form-group" id="group-type-container">
+          <label>Group Type</label>
+          <div class="group-type-options">
+            <label class="type-option-card">
+              <input type="radio" name="group-type" value="split" checked>
+              <div class="option-card-content">
+                <span class="option-title">Split Expenses</span>
+                <span class="option-desc">Track/split bills, calculate who owes who.</span>
+              </div>
+            </label>
+            <label class="type-option-card">
+              <input type="radio" name="group-type" value="budget">
+              <div class="option-card-content">
+                <span class="option-title">Mock Budget Plan</span>
+                <span class="option-desc">Estimate total costs and calculate shares.</span>
+              </div>
+            </label>
+          </div>
+        </div>
         <div class="form-group">
           <label for="group-currency-select">Currency</label>
           <select id="group-currency-select" required>
@@ -414,7 +433,7 @@
           </div>
         </div>
 
-        <div class="form-group">
+        <div id="expense-payer-container" class="form-group">
           <label for="expense-payer-select">Who Paid? <span class="required">*</span></label>
           <select id="expense-payer-select" required>
             <!-- Dynamically populated list of friends -->
