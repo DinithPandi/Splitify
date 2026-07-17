@@ -1403,6 +1403,11 @@ async function checkAuth() {
         appContainerEl.style.display = 'flex';
         userProfileNameEl.textContent = data.username;
         
+        const avatarEl = document.getElementById('user-avatar');
+        if (avatarEl && data.username) {
+          avatarEl.textContent = data.username.charAt(0).toUpperCase();
+        }
+
         // Load groups from server and render
         await loadState();
         render();
@@ -1416,6 +1421,8 @@ async function checkAuth() {
   // Unauthenticated view
   appContainerEl.style.display = 'none';
   authContainerEl.style.display = 'flex';
+  const avatarEl = document.getElementById('user-avatar');
+  if (avatarEl) avatarEl.textContent = 'G';
 }
 
 // Upload existing localStorage data to user account (Migration Helper)
@@ -1542,6 +1549,22 @@ function initAuth() {
       console.error('Logout failed:', err);
     }
   });
+
+  // Toggle Logout Dropdown
+  const userAvatar = document.getElementById('user-avatar');
+  const logoutDropdown = document.getElementById('logout-dropdown');
+
+  if (userAvatar && logoutDropdown) {
+    userAvatar.addEventListener('click', (e) => {
+      e.stopPropagation();
+      logoutDropdown.classList.toggle('show');
+    });
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', () => {
+      logoutDropdown.classList.remove('show');
+    });
+  }
 
   // Perform initial session validation
   checkAuth();
