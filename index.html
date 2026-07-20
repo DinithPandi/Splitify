@@ -124,6 +124,26 @@
           <div id="user-avatar" class="user-avatar-clickable" title="Account settings">G</div>
           <div id="logout-dropdown" class="logout-dropdown-card">
             <div id="user-profile-name" class="dropdown-username-text">Guest</div>
+            <div class="dropdown-theme-row">
+              <span class="theme-row-label">Theme</span>
+              <button type="button" id="btn-theme-toggle" class="btn-theme-toggle" title="Toggle Light/Dark Theme">
+                <svg class="theme-icon-sun" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="5"></circle>
+                  <line x1="12" y1="1" x2="12" y2="3"></line>
+                  <line x1="12" y1="21" x2="12" y2="23"></line>
+                  <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                  <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                  <line x1="1" y1="12" x2="3" y2="12"></line>
+                  <line x1="21" y1="12" x2="23" y2="12"></line>
+                  <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                  <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                </svg>
+                <svg class="theme-icon-moon" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                </svg>
+                <span id="theme-text-label">Dark</span>
+              </button>
+            </div>
             <button id="btn-logout" class="btn btn-danger btn-logout-dropdown">
               <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
                 <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
@@ -370,25 +390,7 @@
           <label for="group-name-input">Group Name</label>
           <input type="text" id="group-name-input" placeholder="e.g. Road Trip, Roomies" required max="40">
         </div>
-        <div class="form-group" id="group-type-container">
-          <label>Group Type</label>
-          <div class="group-type-options">
-            <label class="type-option-card">
-              <input type="radio" name="group-type" value="split" checked>
-              <div class="option-card-content">
-                <span class="option-title">Split Expenses</span>
-                <span class="option-desc">Track/split bills, calculate who owes who.</span>
-              </div>
-            </label>
-            <label class="type-option-card">
-              <input type="radio" name="group-type" value="budget">
-              <div class="option-card-content">
-                <span class="option-title">Mock Budget Plan</span>
-                <span class="option-desc">Estimate total costs and calculate shares.</span>
-              </div>
-            </label>
-          </div>
-        </div>
+
         <div class="form-group">
           <label for="group-currency-select">Currency</label>
           <select id="group-currency-select" required>
@@ -438,8 +440,8 @@
         </div>
 
         <div id="expense-payer-container" class="form-group">
-          <label for="expense-payer-select">Who Paid? <span class="required">*</span></label>
-          <select id="expense-payer-select" required>
+          <label for="expense-payer-select">Who Paid? <span class="optional-tag">(Optional)</span></label>
+          <select id="expense-payer-select">
             <!-- Dynamically populated list of friends -->
           </select>
         </div>

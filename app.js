@@ -157,8 +157,8 @@ function processGroupFinancials(group) {
     const payer = exp.paidBy;
     const participants = exp.participants || [];
 
-    // Add paid total - only in split mode where payer is set
-    if (group.groupType !== 'budget' && breakdown[payer]) {
+    // Add paid total - only if payer is specified
+    if (payer && breakdown[payer]) {
       breakdown[payer].totalPaid += amt;
     }
 
@@ -173,59 +173,52 @@ function processGroupFinancials(group) {
     }
   });
 
-  // Compute Net Balance - only in split mode
-  if (group.groupType !== 'budget') {
-    group.friends.forEach(f => {
-      const person = breakdown[f.id];
-      person.netBalance = person.totalPaid - person.totalShare;
-    });
-  }
+  // Compute Net Balance for each friend
+  group.friends.forEach(f => {
+    const person = breakdown[f.id];
+    person.netBalance = person.totalPaid - person.totalShare;
+  });
 
   const settlements = [];
 
-  // Debt Simplification Algorithm (Greedy matching) - only in split mode
-  if (group.groupType !== 'budget') {
-    let creditors = [];
-    let debtors = [];
+  // Debt Simplification Algorithm (Greedy matching)
+  let creditors = [];
+  let debtors = [];
 
-    group.friends.forEach(f => {
-      const net = Math.round(breakdown[f.id].netBalance * 100) / 100;
-      if (net > 0.01) {
-        creditors.push({ id: f.id, name: f.name, balance: net });
-      } else if (net < -0.01) {
-        debtors.push({ id: f.id, name: f.name, balance: net });
-      }
-    });
-
-    // Greedy match creditors & debtors
-    while (creditors.length > 0 && debtors.length > 0) {
-      // Sort in place to find largest debtors/creditors
-      creditors.sort((a, b) => b.balance - a.balance);
-      debtors.sort((a, b) => a.balance - b.balance); // most negative (i.e. largest debt) first
-
-      const c = creditors[0];
-      const d = debtors[0];
-
-      const transfer = Math.round(Math.min(c.balance, Math.abs(d.balance)) * 100) / 100;
-
-      if (transfer > 0) {
-        settlements.push({
-          from: d.name,
-          fromId: d.id,
-          to: c.name,
-          toId: c.id,
-          amount: transfer
-        });
-
-        // Update remaining balance tracking
-        c.balance = Math.round((c.balance - transfer) * 100) / 100;
-        d.balance = Math.round((d.balance + transfer) * 100) / 100;
-      }
-
-      // Remove if settled
-      if (c.balance <= 0.01) creditors.shift();
-      if (Math.abs(d.balance) <= 0.01) debtors.shift();
+  group.friends.forEach(f => {
+    const net = Math.round(breakdown[f.id].netBalance * 100) / 100;
+    if (net > 0.01) {
+      creditors.push({ id: f.id, name: f.name, balance: net });
+    } else if (net < -0.01) {
+      debtors.push({ id: f.id, name: f.name, balance: net });
     }
+  });
+
+  // Greedy match creditors & debtors
+  while (creditors.length > 0 && debtors.length > 0) {
+    creditors.sort((a, b) => b.balance - a.balance);
+    debtors.sort((a, b) => a.balance - b.balance);
+
+    const c = creditors[0];
+    const d = debtors[0];
+
+    const transfer = Math.round(Math.min(c.balance, Math.abs(d.balance)) * 100) / 100;
+
+    if (transfer > 0) {
+      settlements.push({
+        from: d.name,
+        fromId: d.id,
+        to: c.name,
+        toId: c.id,
+        amount: transfer
+      });
+
+      c.balance = Math.round((c.balance - transfer) * 100) / 100;
+      d.balance = Math.round((d.balance + transfer) * 100) / 100;
+    }
+
+    if (c.balance <= 0.01) creditors.shift();
+    if (Math.abs(d.balance) <= 0.01) debtors.shift();
   }
 
   return {
@@ -330,12 +323,6 @@ btnCreateGroupSidebar.addEventListener('click', () => {
   groupModalId.value = '';
   groupNameInput.value = '';
   document.getElementById('group-currency-select').value = 'LKR';
-  
-  const typeContainer = document.getElementById('group-type-container');
-  if (typeContainer) typeContainer.style.display = 'block';
-  const splitRadio = document.querySelector('input[name="group-type"][value="split"]');
-  if (splitRadio) splitRadio.checked = true;
-
   openModal(modalGroup);
 });
 
@@ -344,12 +331,6 @@ btnCreateGroupEmpty.addEventListener('click', () => {
   groupModalId.value = '';
   groupNameInput.value = '';
   document.getElementById('group-currency-select').value = 'LKR';
-
-  const typeContainer = document.getElementById('group-type-container');
-  if (typeContainer) typeContainer.style.display = 'block';
-  const splitRadio = document.querySelector('input[name="group-type"][value="split"]');
-  if (splitRadio) splitRadio.checked = true;
-
   openModal(modalGroup);
 });
 
@@ -388,18 +369,12 @@ function renderFriends(group, breakdown) {
 
     let balText = formatMoney(0, group);
     let balClass = 'friend-bal-neutral';
-    if (group.groupType === 'budget') {
-      const shareVal = friendInfo.totalShare || 0;
-      balText = `share: ${formatMoney(shareVal, group)}`;
-      balClass = 'friend-bal-neutral';
-    } else {
-      if (bal > 0.009) {
-        balText = `receives ${formatMoney(bal, group)}`;
-        balClass = 'friend-bal-positive';
-      } else if (bal < -0.009) {
-        balText = `owes ${formatMoney(Math.abs(bal), group)}`;
-        balClass = 'friend-bal-negative';
-      }
+    if (bal > 0.009) {
+      balText = `receives ${formatMoney(bal, group)}`;
+      balClass = 'friend-bal-positive';
+    } else if (bal < -0.009) {
+      balText = `owes ${formatMoney(Math.abs(bal), group)}`;
+      balClass = 'friend-bal-negative';
     }
 
     const li = document.createElement('li');
@@ -541,13 +516,10 @@ function renderGroups() {
   state.groups.forEach(g => {
     const li = document.createElement('li');
     const isActive = g.id === state.activeGroupId;
-    const isBudget = g.groupType === 'budget';
-    const badgeText = isBudget 
-      ? `📋 ${g.friends.length}👤` 
-      : `${g.friends.length}👤`;
+    const badgeText = `${g.friends.length}👤`;
 
     li.innerHTML = `
-      <button class="group-item ${isActive ? 'active' : ''} ${isBudget ? 'group-item-budget' : ''}" data-id="${g.id}">
+      <button class="group-item ${isActive ? 'active' : ''}" data-id="${g.id}">
         <span class="group-name-text">${escapeHTML(g.name)}</span>
         <span class="badge">${badgeText}</span>
       </button>
@@ -580,14 +552,11 @@ function renderGroups() {
 
 function renderExpenses(group) {
   expensesListEl.innerHTML = '';
-  const isBudget = group && group.groupType === 'budget';
 
   if (!group || group.expenses.length === 0) {
     const emptyStateText = document.querySelector('#expenses-empty-state p');
     if (emptyStateText) {
-      emptyStateText.textContent = isBudget 
-        ? 'No budget items added yet. Tap "Add Item" to start planning!'
-        : 'No expenses added yet. Tap "Add Expense" to get started splitting!';
+      emptyStateText.textContent = 'No expenses added yet. Tap "Add Expense" to get started splitting!';
     }
     document.getElementById('expenses-empty-state').style.display = 'flex';
     expensesCountEl.textContent = '0';
@@ -602,7 +571,7 @@ function renderExpenses(group) {
 
   sortedExpenses.forEach(exp => {
     const payerFriend = group.friends.find(f => f.id === exp.paidBy);
-    const payerName = payerFriend ? payerFriend.name : 'Unknown';
+    const payerName = payerFriend ? payerFriend.name : '';
     const splitCount = exp.participants ? exp.participants.length : 0;
     const costPerPerson = splitCount > 0 ? (exp.amount / splitCount) : 0;
 
@@ -617,9 +586,11 @@ function renderExpenses(group) {
     const li = document.createElement('li');
     li.className = 'expense-item';
 
-    const metaHTML = isBudget
-      ? `<span>${escapeHTML(exp.date)}</span>`
-      : `<span>Paid by <strong>${escapeHTML(payerName)}</strong></span>
+    const metaHTML = exp.paidBy && payerFriend
+      ? `<span>Paid by <strong>${escapeHTML(payerName)}</strong></span>
+         <span class="bullet">•</span>
+         <span>${escapeHTML(exp.date)}</span>`
+      : `<span class="badge-unassigned">Not paid yet (Budget item)</span>
          <span class="bullet">•</span>
          <span>${escapeHTML(exp.date)}</span>`;
 
@@ -680,11 +651,9 @@ function renderExpenses(group) {
 function renderBalancesAndSettlements(breakdown, settlements, group) {
   balancesTableBodyEl.innerHTML = '';
   settlementsContainerEl.innerHTML = '';
-  const isBudget = group && group.groupType === 'budget';
 
   if (!group || group.friends.length === 0) {
-    const colspan = isBudget ? 2 : 4;
-    balancesTableBodyEl.innerHTML = `<tr><td colspan="${colspan}" class="sub-empty-state">No balances to calculate</td></tr>`;
+    balancesTableBodyEl.innerHTML = `<tr><td colspan="4" class="sub-empty-state">No balances to calculate</td></tr>`;
     settlementsContainerEl.innerHTML = `<div class="settle-empty">Add friends and expenses to calculate settlements!</div>`;
     if (exportActionsWrapperEl) exportActionsWrapperEl.style.display = 'none';
     return;
@@ -693,100 +662,68 @@ function renderBalancesAndSettlements(breakdown, settlements, group) {
   // Update Balance Table Headers dynamically
   const balanceTableHeader = document.querySelector('.balance-table thead');
   if (balanceTableHeader) {
-    if (isBudget) {
-      balanceTableHeader.innerHTML = `
-        <tr>
-          <th>Friend</th>
-          <th class="txt-right">Budget Share</th>
-        </tr>
-      `;
-    } else {
-      balanceTableHeader.innerHTML = `
-        <tr>
-          <th>Friend</th>
-          <th class="txt-right">Paid</th>
-          <th class="txt-right">Share</th>
-          <th class="txt-right">Net</th>
-        </tr>
-      `;
-    }
+    balanceTableHeader.innerHTML = `
+      <tr>
+        <th>Friend</th>
+        <th class="txt-right">Paid</th>
+        <th class="txt-right">Share</th>
+        <th class="txt-right">Net</th>
+      </tr>
+    `;
   }
 
-  if (isBudget) {
-    if (exportActionsWrapperEl) exportActionsWrapperEl.style.display = 'none';
-  } else {
-    if (exportActionsWrapperEl) exportActionsWrapperEl.style.display = 'flex';
-  }
+  if (exportActionsWrapperEl) exportActionsWrapperEl.style.display = 'flex';
 
   // Populate Balances Table
   group.friends.forEach(f => {
     const fInfo = breakdown[f.id] || { totalPaid: 0, totalShare: 0, netBalance: 0 };
     const tr = document.createElement('tr');
     
-    if (isBudget) {
-      tr.innerHTML = `
-        <td><div class="balance-table-name" title="${escapeHTML(f.name)}">${escapeHTML(f.name)}</div></td>
-        <td class="txt-right"><strong>${formatMoney(fInfo.totalShare, group)}</strong></td>
-      `;
-    } else {
-      const net = fInfo.netBalance;
-      let netClass = 'friend-bal-neutral';
-      let prefix = '';
+    const net = fInfo.netBalance;
+    let netClass = 'friend-bal-neutral';
+    let prefix = '';
 
-      if (net > 0.009) {
-        netClass = 'friend-bal-positive';
-        prefix = '+';
-      } else if (net < -0.009) {
-        netClass = 'friend-bal-negative';
-        prefix = '-';
-      }
-
-      tr.innerHTML = `
-        <td><div class="balance-table-name" title="${escapeHTML(f.name)}">${escapeHTML(f.name)}</div></td>
-        <td class="txt-right">${formatMoney(fInfo.totalPaid, group)}</td>
-        <td class="txt-right">${formatMoney(fInfo.totalShare, group)}</td>
-        <td class="txt-right ${netClass}"><strong>${prefix}${formatMoney(Math.abs(net), group)}</strong></td>
-      `;
+    if (net > 0.009) {
+      netClass = 'friend-bal-positive';
+      prefix = '+';
+    } else if (net < -0.009) {
+      netClass = 'friend-bal-negative';
+      prefix = '-';
     }
+
+    tr.innerHTML = `
+      <td><div class="balance-table-name" title="${escapeHTML(f.name)}">${escapeHTML(f.name)}</div></td>
+      <td class="txt-right">${formatMoney(fInfo.totalPaid, group)}</td>
+      <td class="txt-right">${formatMoney(fInfo.totalShare, group)}</td>
+      <td class="txt-right ${netClass}"><strong>${prefix}${formatMoney(Math.abs(net), group)}</strong></td>
+    `;
     balancesTableBodyEl.appendChild(tr);
   });
 
   // Populate Settlements
-  if (isBudget) {
-    settlementsContainerEl.innerHTML = `
-      <div class="budget-info-placeholder">
-        <svg viewBox="0 0 24 24" width="32" height="32" fill="none" stroke="currentColor" stroke-width="2" style="margin-bottom: 8px; color: var(--color-primary);">
-          <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2"/>
-        </svg>
-        <span class="placeholder-title" style="font-weight: 700; color: var(--text-main); font-size: 0.9rem; margin-bottom: 4px;">Mock Budget Plan Active</span>
-        <span style="font-size: 0.75rem; color: var(--text-secondary); line-height: 1.4; max-width: 250px;">This is an estimated budget. No payments have been recorded yet, so no settlements are needed.</span>
-      </div>
-    `;
+  if (settlements.length === 0) {
+    settlementsContainerEl.innerHTML = `<div class="settle-empty">✨ All balances settled! No transfers needed.</div>`;
   } else {
-    if (settlements.length === 0) {
-      settlementsContainerEl.innerHTML = `<div class="settle-empty">✨ All balances settled! No transfers needed.</div>`;
-    } else {
-      settlements.forEach(settle => {
-        const settleEl = document.createElement('div');
-        settleEl.className = 'settle-item';
-        settleEl.innerHTML = `
-          <div class="settle-party">
-            <span title="${escapeHTML(settle.from)}">${escapeHTML(settle.from)}</span>
-          </div>
-          <div class="settle-arrow">
-            <svg width="24" height="12" viewBox="0 0 24 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M18 2L22 6L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-              <path d="M2 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-            </svg>
-            <span class="settle-val">${formatMoney(settle.amount, group)}</span>
-          </div>
-          <div class="settle-party txt-right" style="justify-content: flex-end;">
-            <span title="${escapeHTML(settle.to)}">${escapeHTML(settle.to)}</span>
-          </div>
-        `;
-        settlementsContainerEl.appendChild(settleEl);
-      });
-    }
+    settlements.forEach(settle => {
+      const settleEl = document.createElement('div');
+      settleEl.className = 'settle-item';
+      settleEl.innerHTML = `
+        <div class="settle-party">
+          <span title="${escapeHTML(settle.from)}">${escapeHTML(settle.from)}</span>
+        </div>
+        <div class="settle-arrow">
+          <svg width="24" height="12" viewBox="0 0 24 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M18 2L22 6L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M2 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          </svg>
+          <span class="settle-val">${formatMoney(settle.amount, group)}</span>
+        </div>
+        <div class="settle-party txt-right" style="justify-content: flex-end;">
+          <span title="${escapeHTML(settle.to)}">${escapeHTML(settle.to)}</span>
+        </div>
+      `;
+      settlementsContainerEl.appendChild(settleEl);
+    });
   }
 }
 
@@ -805,17 +742,12 @@ function render() {
   emptyStateEl.style.display = 'none';
   dashboardEl.style.display = 'flex';
 
-  const isBudget = activeGroup.groupType === 'budget';
-  if (isBudget) {
-    activeGroupNameEl.innerHTML = `${escapeHTML(activeGroup.name)} <span class="badge-type-budget">Budget Plan</span>`;
-  } else {
-    activeGroupNameEl.innerHTML = escapeHTML(activeGroup.name);
-  }
+  activeGroupNameEl.innerHTML = escapeHTML(activeGroup.name);
 
   // Update metric label
   const metricLabelEl = document.getElementById('metric-total-spent-label');
   if (metricLabelEl) {
-    metricLabelEl.textContent = isBudget ? 'Total Budgeted' : 'Total Spent';
+    metricLabelEl.textContent = 'Total Spent';
   }
 
   // Update add expense trigger text
@@ -825,14 +757,14 @@ function render() {
         <line x1="12" y1="5" x2="12" y2="19"></line>
         <line x1="5" y1="12" x2="19" y2="12"></line>
       </svg>
-      ${isBudget ? 'Add Item' : 'Add Expense'}
+      Add Expense
     `;
   }
 
   // Update expenses header
   const expensesHeaderEl = document.querySelector('.col-expenses .col-header h2');
   if (expensesHeaderEl) {
-    expensesHeaderEl.textContent = isBudget ? 'Budget Items' : 'Expenses';
+    expensesHeaderEl.textContent = 'Expenses';
   }
 
   // Process data calculations
@@ -868,14 +800,10 @@ formGroup.addEventListener('submit', (e) => {
     }
   } else {
     // Create new group
-    const groupTypeInput = document.querySelector('input[name="group-type"]:checked');
-    const groupType = groupTypeInput ? groupTypeInput.value : 'split';
-
     const newGroup = {
       id: generateId(),
       name: name,
       currency: currency,
-      groupType: groupType,
       friends: [],
       expenses: []
     };
@@ -896,10 +824,6 @@ btnEditGroup.addEventListener('click', () => {
   groupModalId.value = activeGroup.id;
   groupNameInput.value = activeGroup.name;
   document.getElementById('group-currency-select').value = activeGroup.currency || 'LKR';
-
-  // Hide group type selector when editing (not allowed to change type)
-  const typeContainer = document.getElementById('group-type-container');
-  if (typeContainer) typeContainer.style.display = 'none';
 
   openModal(modalGroup);
 });
@@ -967,8 +891,6 @@ function openExpenseModal(expenseId = null) {
     return;
   }
 
-  const isBudget = group.groupType === 'budget';
-
   // Set local currency label dynamically
   const currency = group.currency || 'LKR';
   const amountLabel = document.querySelector('label[for="expense-amount-input"]');
@@ -976,15 +898,20 @@ function openExpenseModal(expenseId = null) {
     amountLabel.innerHTML = `Amount (${currency}) <span class="required">*</span>`;
   }
 
-  // Update description placeholder based on type
   if (expenseDescInput) {
-    expenseDescInput.placeholder = isBudget ? 'e.g. Travel, Accommodation, Tickets' : 'e.g. Dinner, Uber, Groceries';
+    expenseDescInput.placeholder = 'e.g. Dinner, Uber, Groceries, Hotel';
   }
 
   // Clear Payer selector & share grid
   expensePayerSelect.innerHTML = '';
   expenseShareCheckboxes.innerHTML = '';
   expenseShareError.style.display = 'none';
+
+  // Default option for unassigned payer (budget item)
+  const defaultOpt = document.createElement('option');
+  defaultOpt.value = '';
+  defaultOpt.textContent = '-- Not paid yet (Budget item) --';
+  expensePayerSelect.appendChild(defaultOpt);
 
   // Fill Payer selector options
   group.friends.forEach(f => {
@@ -1005,30 +932,16 @@ function openExpenseModal(expenseId = null) {
     expenseShareCheckboxes.appendChild(label);
   });
 
-  // Hide or show Who Paid container
-  const payerContainer = document.getElementById('expense-payer-container');
-  if (payerContainer) {
-    if (isBudget) {
-      payerContainer.style.display = 'none';
-      expensePayerSelect.removeAttribute('required');
-    } else {
-      payerContainer.style.display = 'block';
-      expensePayerSelect.setAttribute('required', 'required');
-    }
-  }
-
   if (expenseId) {
     // Edit existing expense setup
-    expenseModalTitle.textContent = isBudget ? 'Edit Budget Item' : 'Edit Expense';
+    expenseModalTitle.textContent = 'Edit Expense';
     expenseModalId.value = expenseId;
 
     const exp = group.expenses.find(e => e.id === expenseId);
     if (exp) {
       expenseDescInput.value = exp.description;
       expenseAmountInput.value = exp.amount;
-      if (!isBudget) {
-        expensePayerSelect.value = exp.paidBy;
-      }
+      expensePayerSelect.value = exp.paidBy || '';
 
       // Uncheck everyone first
       const checkBoxes = expenseShareCheckboxes.querySelectorAll('input[type="checkbox"]');
@@ -1038,14 +951,11 @@ function openExpenseModal(expenseId = null) {
     }
   } else {
     // Clean fields for new entry
-    expenseModalTitle.textContent = isBudget ? 'Add Budget Item' : 'Add Expense';
+    expenseModalTitle.textContent = 'Add Expense';
     expenseModalId.value = '';
     expenseDescInput.value = '';
     expenseAmountInput.value = '';
-    // Select first friend as default payer if not budget
-    if (!isBudget && group.friends.length > 0) {
-      expensePayerSelect.value = group.friends[0].id;
-    }
+    expensePayerSelect.value = '';
   }
 
   openModal(modalExpense);
@@ -1083,10 +993,9 @@ formExpense.addEventListener('submit', (e) => {
   if (!group) return;
 
   const id = expenseModalId.value;
-  const isBudget = group.groupType === 'budget';
-  const desc = expenseDescInput.value.trim() || (isBudget ? 'Budget Item' : 'Expense');
+  const desc = expenseDescInput.value.trim() || 'Expense';
   const amount = parseFloat(expenseAmountInput.value);
-  const paidBy = isBudget ? null : expensePayerSelect.value;
+  const paidBy = expensePayerSelect.value ? expensePayerSelect.value : null;
 
   // Retrieve checked participants
   const checkedBoxes = expenseShareCheckboxes.querySelectorAll('input[type="checkbox"]:checked');
@@ -1570,6 +1479,32 @@ function initAuth() {
   checkAuth();
 }
 
+// Theme Controller
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  const themeTextLabel = document.getElementById('theme-text-label');
+  if (themeTextLabel) {
+    themeTextLabel.textContent = theme === 'light' ? 'Light' : 'Dark';
+  }
+}
+
+function initTheme() {
+  const btnThemeToggle = document.getElementById('btn-theme-toggle');
+  const savedTheme = localStorage.getItem('splitify_theme') || 'dark';
+  applyTheme(savedTheme);
+
+  if (btnThemeToggle) {
+    btnThemeToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
+      const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+      applyTheme(newTheme);
+      localStorage.setItem('splitify_theme', newTheme);
+    });
+  }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  initTheme();
   initAuth();
 });
