@@ -194,6 +194,7 @@ app.get('/api/groups', authenticateUser, async (req, res) => {
     const clientGroups = groups.map(g => ({
       id: g._id,
       name: g.name,
+      description: g.description || '',
       currency: g.currency || 'LKR',
       friends: g.friends || [],
       expenses: g.expenses || [],
@@ -225,6 +226,7 @@ app.post('/api/groups', authenticateUser, async (req, res) => {
       {
         $set: {
           name: group.name,
+          description: group.description || '',
           currency: group.currency || 'LKR',
           friends: group.friends || [],
           expenses: group.expenses || [],

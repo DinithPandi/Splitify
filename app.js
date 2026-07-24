@@ -228,6 +228,113 @@ function processGroupFinancials(group) {
   };
 }
 
+// Helpers for Category SVG icons
+function getExpenseCategoryClass(description) {
+  const desc = (description || '').toLowerCase();
+  if (desc.includes('rent') || desc.includes('house') || desc.includes('room') || desc.includes('accommodation')) {
+    return 'icon-rent';
+  }
+  if (desc.includes('grocery') || desc.includes('groceries') || desc.includes('market') || desc.includes('supermarket') || desc.includes('food') || desc.includes('dinner') || desc.includes('lunch') || desc.includes('restaurant') || desc.includes('cafe') || desc.includes('meal') || desc.includes('eat')) {
+    if (desc.includes('grocery') || desc.includes('groceries')) {
+      return 'icon-groceries';
+    }
+    return 'icon-food';
+  }
+  if (desc.includes('electricity') || desc.includes('water') || desc.includes('bill') || desc.includes('utility') || desc.includes('power') || desc.includes('gas') || desc.includes('wifi') || desc.includes('internet')) {
+    return 'icon-utilities';
+  }
+  if (desc.includes('uber') || desc.includes('taxi') || desc.includes('transport') || desc.includes('travel') || desc.includes('fuel') || desc.includes('bus') || desc.includes('train')) {
+    return 'icon-transport';
+  }
+  return 'icon-generic';
+}
+
+function getCategorySVG(catClass) {
+  switch (catClass) {
+    case 'icon-rent':
+      return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>`;
+    case 'icon-groceries':
+      return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"></path><line x1="3" y1="6" x2="21" y2="6"></line><path d="M16 10a4 4 0 0 1-8 0"></path></svg>`;
+    case 'icon-utilities':
+      return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`;
+    case 'icon-food':
+      return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg>`;
+    case 'icon-transport':
+      return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="3" width="15" height="13" rx="2"></rect><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"></polygon><circle cx="5.5" cy="18.5" r="2.5"></circle><circle cx="18.5" cy="18.5" r="2.5"></circle></svg>`;
+    default:
+      return `<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>`;
+  }
+}
+
+// Settle Up Actions
+function recordSettlementPayment(fromId, toId, amount) {
+  const group = getActiveGroup();
+  if (!group) return;
+
+  const fromFriend = group.friends.find(f => f.id === fromId);
+  const toFriend = group.friends.find(f => f.id === toId);
+  const fromName = fromFriend ? fromFriend.name : 'Debtor';
+  const toName = toFriend ? toFriend.name : 'Creditor';
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const newExpense = {
+    id: generateId(),
+    description: `Settle: ${fromName} to ${toName}`,
+    amount: Number(amount),
+    paidBy: fromId,
+    participants: [toId],
+    date: todayStr
+  };
+
+  group.expenses.push(newExpense);
+  saveState();
+  closeModal(document.getElementById('modal-settle-up'));
+  render();
+}
+
+function renderSettleUpModal() {
+  const group = getActiveGroup();
+  const modalList = document.getElementById('settlements-list-modal');
+  if (!group || !modalList) return;
+
+  modalList.innerHTML = '';
+  const analysis = processGroupFinancials(group);
+  const settlements = analysis.settlements;
+
+  if (settlements.length === 0) {
+    modalList.innerHTML = `<div class="settle-empty" style="text-align:center; padding: 20px; color: var(--text-muted);">✨ All balances settled! No transfers needed.</div>`;
+    return;
+  }
+
+  settlements.forEach((settle, index) => {
+    const div = document.createElement('div');
+    div.className = 'settle-item-modal';
+    div.innerHTML = `
+      <div class="settle-party-modal">
+        <span>${escapeHTML(settle.from)}</span>
+        <svg class="settle-party-modal-arrow" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+          <polyline points="12 5 19 12 12 19"></polyline>
+        </svg>
+        <span>${escapeHTML(settle.to)}</span>
+      </div>
+      <div style="display:flex; align-items:center; gap:12px;">
+        <span class="settle-amount-modal">${formatMoney(settle.amount, group)}</span>
+        <button class="btn-mark-settled" data-index="${index}">Settle</button>
+      </div>
+    `;
+    modalList.appendChild(div);
+  });
+
+  modalList.querySelectorAll('.btn-mark-settled').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = parseInt(btn.getAttribute('data-index'));
+      const s = settlements[idx];
+      recordSettlementPayment(s.fromId, s.toId, s.amount);
+    });
+  });
+}
+
 // ==========================================================================
 // DOM Cache & Modals Management
 // ==========================================================================
@@ -243,25 +350,19 @@ const groupsListEl = document.getElementById('groups-list');
 const friendsListEl = document.getElementById('friends-list');
 const expensesListEl = document.getElementById('expenses-list');
 const settlementsContainerEl = document.getElementById('settlements-container');
-const balancesTableBodyEl = document.getElementById('balances-table-body');
-const exportActionsWrapperEl = document.getElementById('export-actions-wrapper');
-const btnExportImageEl = document.getElementById('btn-export-image');
-const btnExportWhatsappEl = document.getElementById('btn-export-whatsapp');
-
-// Stats Counters
-const friendsCountEl = document.getElementById('friends-count');
-const expensesCountEl = document.getElementById('expenses-count');
 
 // Modals
 const modalGroup = document.getElementById('modal-group');
 const modalExpense = document.getElementById('modal-expense');
 const modalConfirm = document.getElementById('modal-confirm');
+const modalSettleUp = document.getElementById('modal-settle-up');
 
 // Modals Inner Form Controls
 const formGroup = document.getElementById('form-group');
 const groupModalTitle = document.getElementById('group-modal-title');
 const groupModalId = document.getElementById('group-modal-id');
 const groupNameInput = document.getElementById('group-name-input');
+const groupDescInput = document.getElementById('group-desc-input');
 
 const formExpense = document.getElementById('form-expense');
 const expenseModalTitle = document.getElementById('expense-modal-title');
@@ -278,6 +379,11 @@ const btnCreateGroupEmpty = document.getElementById('btn-create-group-empty');
 const btnEditGroup = document.getElementById('btn-edit-group');
 const btnDeleteGroup = document.getElementById('btn-delete-group');
 const btnAddExpenseTrigger = document.getElementById('btn-add-expense-trigger');
+const btnSettleUp = document.getElementById('btn-settle-up');
+const btnWhatsappShareModal = document.getElementById('btn-whatsapp-share-modal');
+const btnExportImageModalEl = document.getElementById('btn-export-image-modal');
+const btnAddFriendTrigger = document.getElementById('btn-add-friend-trigger');
+
 const btnShareSelectAll = document.getElementById('btn-share-select-all');
 const btnShareClearAll = document.getElementById('btn-share-clear-all');
 
@@ -322,6 +428,7 @@ btnCreateGroupSidebar.addEventListener('click', () => {
   groupModalTitle.textContent = 'Create New Group';
   groupModalId.value = '';
   groupNameInput.value = '';
+  groupDescInput.value = '';
   document.getElementById('group-currency-select').value = 'LKR';
   openModal(modalGroup);
 });
@@ -330,6 +437,7 @@ btnCreateGroupEmpty.addEventListener('click', () => {
   groupModalTitle.textContent = 'Create New Group';
   groupModalId.value = '';
   groupNameInput.value = '';
+  groupDescInput.value = '';
   document.getElementById('group-currency-select').value = 'LKR';
   openModal(modalGroup);
 });
@@ -356,42 +464,40 @@ let editingFriendId = null;
 function renderFriends(group, breakdown) {
   friendsListEl.innerHTML = '';
   if (!group || group.friends.length === 0) {
-    friendsCountEl.textContent = '0';
-    friendsListEl.innerHTML = `<li class="sub-empty-state" style="padding: 20px 10px;">No friends added yet</li>`;
+    friendsListEl.innerHTML = `<li class="sub-empty-state" style="padding: 20px 10px; width: 100%;">No members added yet</li>`;
     return;
   }
 
-  friendsCountEl.textContent = group.friends.length;
-
   group.friends.forEach((friend, idx) => {
-    const friendInfo = breakdown[friend.id] || { netBalance: 0, totalShare: 0 };
-    const bal = friendInfo.netBalance;
-
-    let balText = formatMoney(0, group);
-    let balClass = 'friend-bal-neutral';
-    if (bal > 0.009) {
-      balText = `receives ${formatMoney(bal, group)}`;
-      balClass = 'friend-bal-positive';
-    } else if (bal < -0.009) {
-      balText = `owes ${formatMoney(Math.abs(bal), group)}`;
-      balClass = 'friend-bal-negative';
+    const isMe = state.username && friend.name.toLowerCase() === state.username.toLowerCase();
+    
+    // Status text and active dot
+    let statusText = '';
+    let isOnline = false;
+    
+    if (isMe) {
+      statusText = 'Admin';
+      isOnline = true;
+    } else {
+      // Mock status
+      const hashVal = Math.abs(hashString(friend.name));
+      isOnline = hashVal % 2 === 0;
+      statusText = isOnline ? 'Active now' : `Last seen ${(hashVal % 10) + 1}h ago`;
     }
 
     const li = document.createElement('li');
 
-    // Avatar gradient index determined statically by hashing friend name
-    const avatarGradientIdx = Math.abs(hashString(friend.name)) % 6;
-
     if (editingFriendId === friend.id) {
       // Inline edit mode template
       li.className = 'friend-edit-card';
+      li.style.width = '100%';
       li.innerHTML = `
-        <form class="friend-edit-form" id="form-edit-friend-inline">
-          <input type="text" id="edit-friend-name-input" value="${escapeHTML(friend.name)}" required max="30">
-          <button type="submit" class="btn-icon-small" title="Save">
+        <form class="friend-edit-form" id="form-edit-friend-inline" style="width: 100%;">
+          <input type="text" id="edit-friend-name-input" value="${escapeHTML(friend.name)}" required max="30" style="padding: 6px 10px; font-size: 0.8rem;">
+          <button type="submit" class="btn-icon-minimal" title="Save">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--color-success)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
           </button>
-          <button type="button" id="btn-cancel-edit-friend" class="btn-icon-small" title="Cancel">
+          <button type="button" id="btn-cancel-edit-friend" class="btn-icon-minimal" title="Cancel">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="var(--color-danger)" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
           </button>
         </form>
@@ -403,49 +509,62 @@ function renderFriends(group, breakdown) {
       const editInput = li.querySelector('#edit-friend-name-input');
       const cancelBtn = li.querySelector('#btn-cancel-edit-friend');
 
-      editInput.focus();
-      editInput.select();
+      if (editInput) {
+        editInput.focus();
+        editInput.select();
+      }
 
-      cancelBtn.addEventListener('click', () => {
-        editingFriendId = null;
-        render();
-      });
+      if (cancelBtn) {
+        cancelBtn.addEventListener('click', () => {
+          editingFriendId = null;
+          render();
+        });
+      }
 
-      editForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        const newName = editInput.value.trim();
-        if (!newName) return;
+      if (editForm) {
+        editForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+          const newName = editInput.value.trim();
+          if (!newName) return;
 
-        // Name unique check (excluding self)
-        const duplicate = group.friends.some(f => f.id !== friend.id && f.name.toLowerCase() === newName.toLowerCase());
-        if (duplicate) {
-          alert('A friend with this name already exists in this group.');
-          return;
-        }
+          // Name unique check (excluding self)
+          const duplicate = group.friends.some(f => f.id !== friend.id && f.name.toLowerCase() === newName.toLowerCase());
+          if (duplicate) {
+            alert('A friend with this name already exists in this group.');
+            return;
+          }
 
-        friend.name = newName;
-        editingFriendId = null;
-        saveState();
-        render();
-      });
+          friend.name = newName;
+          editingFriendId = null;
+          saveState();
+          render();
+        });
+      }
 
     } else {
       // View Card Mode
-      li.className = 'friend-card';
+      li.className = 'member-item-new';
+      
+      const avatarGradientIdx = Math.abs(hashString(friend.name)) % 6;
+      const displayName = isMe ? 'You' : friend.name;
+
       li.innerHTML = `
-        <div class="friend-info">
-          <div class="avatar friend-avatar-${avatarGradientIdx}">${escapeHTML(friend.name.charAt(0).toUpperCase())}</div>
-          <div class="friend-details">
-            <span class="name">${escapeHTML(friend.name)}</span>
-            <span class="sub-bal ${balClass}">${balText}</span>
+        <div class="member-info-new">
+          <div class="avatar-wrapper-new">
+            <div class="avatar friend-avatar-${avatarGradientIdx}">${escapeHTML(displayName.charAt(0).toUpperCase())}</div>
+            <div class="status-dot-new ${isOnline ? 'active' : ''}"></div>
+          </div>
+          <div class="member-meta-new">
+            <span class="member-name-new">${escapeHTML(displayName)}</span>
+            <span class="member-status-new">${escapeHTML(statusText)}</span>
           </div>
         </div>
         <div class="friend-actions">
-          <button class="btn-icon-small btn-edit-friend-trigger" data-id="${friend.id}" title="Edit Name">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          <button class="btn-icon-minimal btn-edit-friend-trigger" data-id="${friend.id}" title="Edit Name">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
           </button>
-          <button class="btn-icon-small btn-delete-friend-trigger danger" data-id="${friend.id}" title="Remove Friend">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          <button class="btn-icon-minimal btn-delete-friend-trigger danger" data-id="${friend.id}" title="Remove Friend">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           </button>
         </div>
       `;
@@ -554,73 +673,60 @@ function renderExpenses(group) {
   expensesListEl.innerHTML = '';
 
   if (!group || group.expenses.length === 0) {
-    const emptyStateText = document.querySelector('#expenses-empty-state p');
-    if (emptyStateText) {
-      emptyStateText.textContent = 'No expenses added yet. Tap "Add Expense" to get started splitting!';
-    }
     document.getElementById('expenses-empty-state').style.display = 'flex';
-    expensesCountEl.textContent = '0';
     return;
   }
 
   document.getElementById('expenses-empty-state').style.display = 'none';
-  expensesCountEl.textContent = group.expenses.length;
 
   // Render expenses descending by date/creation order so new items are on top
   const sortedExpenses = [...group.expenses].reverse();
 
   sortedExpenses.forEach(exp => {
     const payerFriend = group.friends.find(f => f.id === exp.paidBy);
-    const payerName = payerFriend ? payerFriend.name : '';
+    const payerName = payerFriend ? (state.username && payerFriend.name.toLowerCase() === state.username.toLowerCase() ? 'You' : payerFriend.name) : 'Unknown';
     const splitCount = exp.participants ? exp.participants.length : 0;
-    const costPerPerson = splitCount > 0 ? (exp.amount / splitCount) : 0;
-
-    // Display initials in bullet lists
-    const participantNames = exp.participants
-      .map(pId => {
-        const fr = group.friends.find(f => f.id === pId);
-        return fr ? fr.name : 'Unknown';
-      })
-      .join(', ');
+    
+    const catClass = getExpenseCategoryClass(exp.description);
+    const svgIcon = getCategorySVG(catClass);
+    
+    // Format Date
+    let displayDate = exp.date;
+    if (exp.date) {
+      try {
+        const parts = exp.date.split('-');
+        if (parts.length === 3) {
+          const dObj = new Date(parts[0], parts[1] - 1, parts[2]);
+          displayDate = dObj.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' });
+        }
+      } catch (err) {}
+    }
 
     const li = document.createElement('li');
     li.className = 'expense-item';
-
-    const metaHTML = exp.paidBy && payerFriend
-      ? `<span>Paid by <strong>${escapeHTML(payerName)}</strong></span>
-         <span class="bullet">•</span>
-         <span>${escapeHTML(exp.date)}</span>`
-      : `<span class="badge-unassigned">Not paid yet (Budget item)</span>
-         <span class="bullet">•</span>
-         <span>${escapeHTML(exp.date)}</span>`;
-
     li.innerHTML = `
-      <div class="expense-row-top">
-        <div class="expense-desc-block">
-          <span class="expense-title">${escapeHTML(exp.description || 'Expense')}</span>
-          <span class="expense-meta">
-            ${metaHTML}
-          </span>
+      <div class="expense-left-side">
+        <div class="expense-category-icon-wrapper ${catClass}">
+          ${svgIcon}
         </div>
-        <div class="expense-value-block">
-          <span class="expense-price">${formatMoney(exp.amount, group)}</span>
-          <div class="friend-actions">
-            <button class="btn-icon-small btn-edit-expense-trigger" data-id="${exp.id}" title="Edit Expense">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
-            </button>
-            <button class="btn-icon-small btn-delete-expense-trigger danger" data-id="${exp.id}" title="Delete Expense">
-              <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-            </button>
-          </div>
+        <div class="expense-info-block">
+          <h4>${escapeHTML(exp.description || 'Expense')}</h4>
+          <span>Paid by ${escapeHTML(payerName)}</span>
         </div>
       </div>
-      <div class="expense-row-bottom">
-        <div class="expense-split-info">
-          <span>Split between <span class="split-pill">${splitCount} friends</span></span>
+      <div class="expense-right-side">
+        <div class="expense-financial-block">
+          <span class="price">${formatMoney(exp.amount, group)}</span>
+          <span class="date">${escapeHTML(displayDate)}</span>
         </div>
-        <span class="txt-right" title="${escapeHTML(participantNames)}">
-          ${formatMoney(costPerPerson, group)} each
-        </span>
+        <div class="friend-actions">
+          <button class="btn-icon-minimal btn-edit-expense-trigger" data-id="${exp.id}" title="Edit Expense">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+          </button>
+          <button class="btn-icon-minimal btn-delete-expense-trigger danger" data-id="${exp.id}" title="Delete Expense">
+            <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          </button>
+        </div>
       </div>
     `;
 
@@ -649,85 +755,64 @@ function renderExpenses(group) {
 }
 
 function renderBalancesAndSettlements(breakdown, settlements, group) {
-  balancesTableBodyEl.innerHTML = '';
-  settlementsContainerEl.innerHTML = '';
+  const customSettlementsContainer = document.getElementById('settlements-container');
+  const balancesEmptyState = document.getElementById('balances-empty-state');
+  
+  if (!customSettlementsContainer) return;
+  customSettlementsContainer.innerHTML = '';
 
-  if (!group || group.friends.length === 0) {
-    balancesTableBodyEl.innerHTML = `<tr><td colspan="4" class="sub-empty-state">No balances to calculate</td></tr>`;
-    settlementsContainerEl.innerHTML = `<div class="settle-empty">Add friends and expenses to calculate settlements!</div>`;
-    if (exportActionsWrapperEl) exportActionsWrapperEl.style.display = 'none';
+  if (!group || group.friends.length === 0 || settlements.length === 0) {
+    if (balancesEmptyState) balancesEmptyState.style.display = 'block';
     return;
   }
 
-  // Update Balance Table Headers dynamically
-  const balanceTableHeader = document.querySelector('.balance-table thead');
-  if (balanceTableHeader) {
-    balanceTableHeader.innerHTML = `
-      <tr>
-        <th>Friend</th>
-        <th class="txt-right">Paid</th>
-        <th class="txt-right">Share</th>
-        <th class="txt-right">Net</th>
-      </tr>
-    `;
-  }
+  if (balancesEmptyState) balancesEmptyState.style.display = 'none';
 
-  if (exportActionsWrapperEl) exportActionsWrapperEl.style.display = 'flex';
-
-  // Populate Balances Table
-  group.friends.forEach(f => {
-    const fInfo = breakdown[f.id] || { totalPaid: 0, totalShare: 0, netBalance: 0 };
-    const tr = document.createElement('tr');
+  settlements.forEach(settle => {
+    const li = document.createElement('div');
     
-    const net = fInfo.netBalance;
-    let netClass = 'friend-bal-neutral';
-    let prefix = '';
-
-    if (net > 0.009) {
-      netClass = 'friend-bal-positive';
-      prefix = '+';
-    } else if (net < -0.009) {
-      netClass = 'friend-bal-negative';
-      prefix = '-';
+    // Check if the logged-in user is involved in this settlement
+    const isFromMe = state.username && settle.from.toLowerCase() === state.username.toLowerCase();
+    const isToMe = state.username && settle.to.toLowerCase() === state.username.toLowerCase();
+    
+    const displayFrom = isFromMe ? 'You' : settle.from;
+    const displayTo = isToMe ? 'You' : settle.to;
+    
+    let balanceClass = 'neutral';
+    let isOwedByMe = false;
+    let isOwedToMe = false;
+    
+    if (isFromMe) {
+      balanceClass = 'negative';
+      isOwedByMe = true;
+    } else if (isToMe) {
+      balanceClass = 'positive';
+      isOwedToMe = true;
     }
 
-    tr.innerHTML = `
-      <td><div class="balance-table-name" title="${escapeHTML(f.name)}">${escapeHTML(f.name)}</div></td>
-      <td class="txt-right">${formatMoney(fInfo.totalPaid, group)}</td>
-      <td class="txt-right">${formatMoney(fInfo.totalShare, group)}</td>
-      <td class="txt-right ${netClass}"><strong>${prefix}${formatMoney(Math.abs(net), group)}</strong></td>
-    `;
-    balancesTableBodyEl.appendChild(tr);
-  });
+    let svgArrow = '';
+    if (isOwedByMe) {
+      svgArrow = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><polyline points="19 12 12 19 5 12"></polyline></svg>`;
+    } else if (isOwedToMe) {
+      svgArrow = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>`;
+    } else {
+      svgArrow = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>`;
+    }
 
-  // Populate Settlements
-  if (settlements.length === 0) {
-    settlementsContainerEl.innerHTML = `<div class="settle-empty">✨ All balances settled! No transfers needed.</div>`;
-  } else {
-    settlements.forEach(settle => {
-      const settleEl = document.createElement('div');
-      settleEl.className = 'settle-item';
-      settleEl.innerHTML = `
-        <div class="settle-party">
-          <span title="${escapeHTML(settle.from)}">${escapeHTML(settle.from)}</span>
-        </div>
-        <div class="settle-arrow">
-          <svg width="24" height="12" viewBox="0 0 24 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M18 2L22 6L18 10" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-            <path d="M2 6H21" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-          </svg>
-          <span class="settle-val">${formatMoney(settle.amount, group)}</span>
-        </div>
-        <div class="settle-party txt-right" style="justify-content: flex-end;">
-          <span title="${escapeHTML(settle.to)}">${escapeHTML(settle.to)}</span>
-        </div>
-      `;
-      settlementsContainerEl.appendChild(settleEl);
-    });
-  }
+    li.className = `balance-item-custom ${balanceClass}`;
+    li.innerHTML = `
+      <div class="arrow-badge">
+        ${svgArrow}
+      </div>
+      <div class="balance-details-custom">
+        <span>${escapeHTML(displayFrom)} owes ${escapeHTML(displayTo)}</span>
+        <strong class="${balanceClass}">${formatMoney(settle.amount, group)}</strong>
+      </div>
+    `;
+    customSettlementsContainer.appendChild(li);
+  });
 }
 
-// Master Render Function
 function render() {
   renderGroups();
 
@@ -742,36 +827,55 @@ function render() {
   emptyStateEl.style.display = 'none';
   dashboardEl.style.display = 'flex';
 
-  activeGroupNameEl.innerHTML = escapeHTML(activeGroup.name);
-
-  // Update metric label
-  const metricLabelEl = document.getElementById('metric-total-spent-label');
-  if (metricLabelEl) {
-    metricLabelEl.textContent = 'Total Spent';
-  }
-
-  // Update add expense trigger text
-  if (btnAddExpenseTrigger) {
-    btnAddExpenseTrigger.innerHTML = `
-      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5">
-        <line x1="12" y1="5" x2="12" y2="19"></line>
-        <line x1="5" y1="12" x2="19" y2="12"></line>
-      </svg>
-      Add Expense
-    `;
-  }
-
-  // Update expenses header
-  const expensesHeaderEl = document.querySelector('.col-expenses .col-header h2');
-  if (expensesHeaderEl) {
-    expensesHeaderEl.textContent = 'Expenses';
+  activeGroupNameEl.textContent = activeGroup.name;
+  
+  const activeSubtitleEl = document.getElementById('active-group-subtitle');
+  if (activeSubtitleEl) {
+    activeSubtitleEl.textContent = activeGroup.description || 'Shared rent, utility bills and groceries';
   }
 
   // Process data calculations
   const analysis = processGroupFinancials(activeGroup);
 
-  // Update total metrics
+  // Update total spent
   metricTotalSpentEl.textContent = formatMoney(analysis.totalSpent, activeGroup);
+
+  // Calculate user share and net balance
+  let myFriendId = null;
+  if (state.username && activeGroup.friends.length > 0) {
+    const me = activeGroup.friends.find(f => f.name.toLowerCase() === state.username.toLowerCase() || f.name.toLowerCase() === 'you' || f.name.toLowerCase() === 'me');
+    if (me) myFriendId = me.id;
+  }
+
+  let yourShare = 0;
+  let netBalance = 0;
+  if (myFriendId && analysis.personBreakdown[myFriendId]) {
+    yourShare = analysis.personBreakdown[myFriendId].totalShare;
+    netBalance = analysis.personBreakdown[myFriendId].netBalance;
+  }
+
+  const yourShareEl = document.getElementById('metric-your-share');
+  if (yourShareEl) {
+    yourShareEl.textContent = formatMoney(yourShare, activeGroup);
+  }
+
+  const netLabelEl = document.getElementById('metric-net-label');
+  const netBalanceEl = document.getElementById('metric-net-balance');
+  if (netBalanceEl && netLabelEl) {
+    netBalanceEl.classList.remove('green-text', 'red-text');
+    if (netBalance > 0.009) {
+      netLabelEl.textContent = 'YOU ARE OWED';
+      netBalanceEl.textContent = formatMoney(netBalance, activeGroup);
+      netBalanceEl.classList.add('green-text');
+    } else if (netBalance < -0.009) {
+      netLabelEl.textContent = 'YOU OWE';
+      netBalanceEl.textContent = formatMoney(Math.abs(netBalance), activeGroup);
+      netBalanceEl.classList.add('red-text');
+    } else {
+      netLabelEl.textContent = 'YOU ARE OWED';
+      netBalanceEl.textContent = formatMoney(0, activeGroup);
+    }
+  }
 
   // Render components
   renderFriends(activeGroup, analysis.personBreakdown);
@@ -792,10 +896,11 @@ formGroup.addEventListener('submit', (e) => {
   if (!name) return;
 
   if (id) {
-    // Editing existing group name & currency
+    // Editing existing group name & currency & description
     const group = state.groups.find(g => g.id === id);
     if (group) {
       group.name = name;
+      group.description = groupDescInput.value.trim();
       group.currency = currency;
     }
   } else {
@@ -803,6 +908,7 @@ formGroup.addEventListener('submit', (e) => {
     const newGroup = {
       id: generateId(),
       name: name,
+      description: groupDescInput.value.trim(),
       currency: currency,
       friends: [],
       expenses: []
@@ -823,6 +929,7 @@ btnEditGroup.addEventListener('click', () => {
   groupModalTitle.textContent = 'Rename & Edit Group';
   groupModalId.value = activeGroup.id;
   groupNameInput.value = activeGroup.name;
+  groupDescInput.value = activeGroup.description || '';
   document.getElementById('group-currency-select').value = activeGroup.currency || 'LKR';
 
   openModal(modalGroup);
@@ -873,6 +980,7 @@ formAddFriend.addEventListener('submit', (e) => {
 
   activeGroup.friends.push(newFriend);
   friendNameInput.value = '';
+  formAddFriend.style.display = 'none';
 
   saveState();
   render();
@@ -1244,11 +1352,56 @@ function exportSettlements(format) {
   }, 100);
 }
 
-if (btnExportImageEl) {
-  btnExportImageEl.addEventListener('click', () => exportSettlements('image'));
+if (btnSettleUp) {
+  btnSettleUp.addEventListener('click', () => {
+    renderSettleUpModal();
+    openModal(modalSettleUp);
+  });
 }
-if (btnExportWhatsappEl) {
-  btnExportWhatsappEl.addEventListener('click', () => exportSettlements('whatsapp'));
+
+if (btnWhatsappShareModal) {
+  btnWhatsappShareModal.addEventListener('click', () => {
+    shareGroupSettlementsWhatsApp();
+  });
+}
+
+if (btnExportImageModalEl) {
+  btnExportImageModalEl.addEventListener('click', () => {
+    exportSettlements('image');
+  });
+}
+
+if (btnAddFriendTrigger) {
+  btnAddFriendTrigger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    const isHidden = formAddFriend.style.display === 'none' || !formAddFriend.style.display;
+    formAddFriend.style.display = isHidden ? 'block' : 'none';
+    if (isHidden) {
+      document.getElementById('friend-name-input').focus();
+    }
+  });
+}
+
+function shareGroupSettlementsWhatsApp() {
+  const group = getActiveGroup();
+  if (!group) return;
+  const analysis = processGroupFinancials(group);
+  const settlements = analysis.settlements;
+
+  let text = `*Splitify Settlements for "${group.name}"*\n`;
+  text += `Date: ${new Date().toLocaleDateString()}\n\n`;
+  if (settlements.length === 0) {
+    text += `✨ All balances settled! No transfers needed.`;
+  } else {
+    settlements.forEach(settle => {
+      const amountStr = formatMoney(settle.amount, group);
+      text += `• *${settle.from}*  👉  *${settle.to}*:  _${amountStr}_\n`;
+    });
+  }
+
+  const encodedText = encodeURIComponent(text);
+  const waUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+  window.open(waUrl, '_blank');
 }
 
 // ==========================================================================
@@ -1311,6 +1464,7 @@ async function checkAuth() {
         authContainerEl.style.display = 'none';
         appContainerEl.style.display = 'flex';
         userProfileNameEl.textContent = data.username;
+        state.username = data.username;
         
         const avatarEl = document.getElementById('user-avatar');
         if (avatarEl && data.username) {
