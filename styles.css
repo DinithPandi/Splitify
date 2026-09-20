@@ -860,9 +860,17 @@ html, body {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-bottom: 18px;
   padding-bottom: 10px;
   border-bottom: 1px solid var(--border-color);
+}
+
+.col-header-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .col-header h2 {
@@ -1453,7 +1461,9 @@ html, body {
 /* Export actions row styling */
 .export-actions {
   display: flex;
+  align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .export-actions .btn-action-text svg {

@@ -247,6 +247,9 @@ const balancesTableBodyEl = document.getElementById('balances-table-body');
 const exportActionsWrapperEl = document.getElementById('export-actions-wrapper');
 const btnExportImageEl = document.getElementById('btn-export-image');
 const btnExportWhatsappEl = document.getElementById('btn-export-whatsapp');
+const expensesExportActionsWrapperEl = document.getElementById('expenses-export-actions-wrapper');
+const btnExportExpensesImageEl = document.getElementById('btn-export-expenses-image');
+const btnExportExpensesWhatsappEl = document.getElementById('btn-export-expenses-whatsapp');
 
 // Stats Counters
 const friendsCountEl = document.getElementById('friends-count');
@@ -560,9 +563,11 @@ function renderExpenses(group) {
     }
     document.getElementById('expenses-empty-state').style.display = 'flex';
     expensesCountEl.textContent = '0';
+    if (expensesExportActionsWrapperEl) expensesExportActionsWrapperEl.style.display = 'none';
     return;
   }
 
+  if (expensesExportActionsWrapperEl) expensesExportActionsWrapperEl.style.display = 'flex';
   document.getElementById('expenses-empty-state').style.display = 'none';
   expensesCountEl.textContent = group.expenses.length;
 
@@ -1249,6 +1254,244 @@ if (btnExportImageEl) {
 }
 if (btnExportWhatsappEl) {
   btnExportWhatsappEl.addEventListener('click', () => exportSettlements('whatsapp'));
+}
+
+// Helper to share text summary and download image to WhatsApp for Expenses
+function fallbackWhatsAppExpensesShare(expenses, activeGroup, blob) {
+  // 1. Download the image so the user has it ready
+  const safeGroupName = activeGroup.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+  const dataUrl = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.download = `${safeGroupName}_expenses.png`;
+  link.href = dataUrl;
+  link.click();
+  URL.revokeObjectURL(dataUrl);
+
+  // 2. Prepare text message
+  const totalSpent = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const totalSpentStr = formatMoney(totalSpent, activeGroup);
+
+  let text = `*Splitify Expenses for "${activeGroup.name}"*\n`;
+  text += `Date: ${new Date().toLocaleDateString()}\n`;
+  text += `Total Expenses: ${expenses.length} (${totalSpentStr})\n\n`;
+
+  if (expenses.length === 0) {
+    text += `✨ No expenses recorded yet.`;
+  } else {
+    text += `*Expenses Breakdown:*\n`;
+    expenses.forEach((exp, idx) => {
+      const payerFriend = activeGroup.friends.find(f => f.id === exp.paidBy);
+      const payerName = payerFriend ? payerFriend.name : 'Budget item / Unassigned';
+      const amountStr = formatMoney(exp.amount, activeGroup);
+      const splitCount = exp.participants ? exp.participants.length : 0;
+      const costPerPerson = splitCount > 0 ? formatMoney(exp.amount / splitCount, activeGroup) : '0';
+
+      text += `${idx + 1}. *${exp.description || 'Expense'}* - ${amountStr}\n`;
+      text += `   • Paid by: ${payerName}\n`;
+      if (splitCount > 0) {
+        text += `   • Split among ${splitCount} friends (${costPerPerson} each)\n`;
+      }
+      if (exp.date) {
+        text += `   • Date: ${exp.date}\n`;
+      }
+      text += `\n`;
+    });
+  }
+  text += `_Expenses breakdown image saved to your downloads._`;
+
+  // 3. Open WhatsApp link
+  const encodedText = encodeURIComponent(text.trim());
+  const waUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+  window.open(waUrl, '_blank');
+}
+
+// ==========================================================================
+// Expenses Export Controller
+// ==========================================================================
+
+function exportExpenses(format) {
+  const activeGroup = getActiveGroup();
+  if (!activeGroup) return;
+
+  const expenses = activeGroup.expenses || [];
+  if (expenses.length === 0) {
+    alert('No expenses to export.');
+    return;
+  }
+
+  const totalSpent = expenses.reduce((sum, e) => sum + (Number(e.amount) || 0), 0);
+  const totalSpentStr = formatMoney(totalSpent, activeGroup);
+
+  // Format today's date
+  const todayStr = new Date().toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  // Create temporary container
+  const exportCard = document.createElement('div');
+  exportCard.id = 'splitify-expenses-export-card';
+  
+  // Apply beautiful inline styles matching Splitify's premium UI
+  exportCard.style.position = 'absolute';
+  exportCard.style.left = '-9999px';
+  exportCard.style.top = '0';
+  exportCard.style.width = '520px';
+  exportCard.style.padding = '32px';
+  exportCard.style.borderRadius = '16px';
+  exportCard.style.background = 'linear-gradient(135deg, #111827 0%, #030712 100%)';
+  exportCard.style.border = '1px solid rgba(255, 255, 255, 0.08)';
+  exportCard.style.color = '#f8fafc';
+  exportCard.style.fontFamily = "'Plus Jakarta Sans', system-ui, -apple-system, sans-serif";
+  exportCard.style.boxSizing = 'border-box';
+  exportCard.style.display = 'flex';
+  exportCard.style.flexDirection = 'column';
+  exportCard.style.gap = '20px';
+  exportCard.style.zIndex = '-9999';
+
+  // Build header HTML
+  let cardHtml = `
+    <!-- Header -->
+    <div style="display: flex; justify-content: space-between; align-items: center;">
+      <div style="display: flex; align-items: center; gap: 8px;">
+        <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="width: 24px; height: 24px; color: #8b5cf6;">
+          <path d="M12 2C6.48 2 2 6.48 2 12C2 17.52 6.48 22 12 22C17.52 22 22 17.52 22 12C22 6.48 17.52 2 12 2ZM13 17H11V15H13V17ZM13 13H11V7H13V13Z" fill="currentColor"/>
+        </svg>
+        <span style="font-weight: 800; font-size: 1.1rem; letter-spacing: -0.025em; color: #f8fafc;">Splitify</span>
+      </div>
+      <span style="font-size: 0.75rem; color: #64748b; font-weight: 500;">${todayStr}</span>
+    </div>
+
+    <!-- Title and Group Info -->
+    <div style="display: flex; flex-direction: column; gap: 4px;">
+      <span style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #8b5cf6; font-weight: 700;">Group Expenses Ledger</span>
+      <h2 style="font-size: 1.5rem; font-weight: 800; color: #f8fafc; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${escapeHTML(activeGroup.name)}</h2>
+    </div>
+
+    <!-- Metrics Summary Card -->
+    <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: rgba(139, 92, 246, 0.08); border: 1px solid rgba(139, 92, 246, 0.2); border-radius: 12px;">
+      <div>
+        <span style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: #a78bfa; font-weight: 700; display: block;">Total Spending</span>
+        <span style="font-size: 1.4rem; font-weight: 800; color: #f8fafc; line-height: 1.2;">${totalSpentStr}</span>
+      </div>
+      <div style="display: flex; gap: 16px; text-align: right;">
+        <div>
+          <span style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; font-weight: 700; display: block;">Expenses</span>
+          <span style="font-size: 1rem; font-weight: 700; color: #f8fafc;">${expenses.length}</span>
+        </div>
+        <div>
+          <span style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; font-weight: 700; display: block;">Friends</span>
+          <span style="font-size: 1rem; font-weight: 700; color: #f8fafc;">${activeGroup.friends ? activeGroup.friends.length : 0}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Expenses List Container -->
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+  `;
+
+  // Render expenses in reverse order (newest on top, matching UI)
+  const sortedExpenses = [...expenses].reverse();
+
+  sortedExpenses.forEach(exp => {
+    const payerFriend = activeGroup.friends.find(f => f.id === exp.paidBy);
+    const payerName = payerFriend ? payerFriend.name : 'Budget / Unassigned';
+    const splitCount = exp.participants ? exp.participants.length : 0;
+    const costPerPerson = splitCount > 0 ? (exp.amount / splitCount) : 0;
+
+    cardHtml += `
+      <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; background: rgba(255, 255, 255, 0.03); border: 1px solid rgba(255, 255, 255, 0.07); border-radius: 10px; font-size: 0.85rem;">
+        <div style="display: flex; flex-direction: column; gap: 4px; max-width: 65%;">
+          <span style="font-weight: 700; font-size: 0.95rem; color: #f8fafc; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHTML(exp.description || 'Expense')}">${escapeHTML(exp.description || 'Expense')}</span>
+          <div style="font-size: 0.72rem; color: #94a3b8; display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            <span>Paid by <strong style="color: #cbd5e1;">${escapeHTML(payerName)}</strong></span>
+            <span>•</span>
+            <span>${escapeHTML(exp.date || '')}</span>
+            <span>•</span>
+            <span style="color: #a78bfa; font-weight: 600;">${splitCount} split (${formatMoney(costPerPerson, activeGroup)} ea)</span>
+          </div>
+        </div>
+        <div style="display: flex; flex-direction: column; align-items: flex-end; justify-content: center;">
+          <span style="font-size: 1.05rem; font-weight: 800; color: #38bdf8; white-space: nowrap;">${formatMoney(exp.amount, activeGroup)}</span>
+        </div>
+      </div>
+    `;
+  });
+
+  cardHtml += `
+    </div>
+
+    <!-- Footer -->
+    <div style="border-top: 1px dashed rgba(255, 255, 255, 0.1); padding-top: 16px; display: flex; justify-content: space-between; align-items: center; margin-top: 8px;">
+      <span style="font-size: 0.7rem; color: #64748b;">Keep track & split bills effortlessly</span>
+      <span style="font-size: 0.75rem; font-weight: 700; color: #8b5cf6;">splitify.app</span>
+    </div>
+  `;
+
+  exportCard.innerHTML = cardHtml;
+  document.body.appendChild(exportCard);
+
+  // Set loading cursor
+  document.body.style.cursor = 'wait';
+
+  // Wait a small delay to make sure rendering is finished
+  setTimeout(() => {
+    html2canvas(exportCard, {
+      scale: 2,
+      backgroundColor: null,
+      useCORS: true,
+      logging: false
+    }).then(canvas => {
+      document.body.style.cursor = 'default';
+      const safeGroupName = activeGroup.name.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+      if (format === 'image') {
+        const dataUrl = canvas.toDataURL('image/png');
+        const link = document.createElement('a');
+        link.download = `${safeGroupName}_expenses.png`;
+        link.href = dataUrl;
+        link.click();
+      } else if (format === 'whatsapp') {
+        canvas.toBlob(blob => {
+          if (!blob) {
+            alert('Failed to generate expenses image.');
+            return;
+          }
+          const file = new File([blob], `${safeGroupName}_expenses.png`, { type: 'image/png' });
+          if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+              files: [file],
+              title: `${activeGroup.name} Expenses`,
+              text: `Check out our expenses for ${activeGroup.name}!`
+            }).catch(err => {
+              console.error('Web Share failed:', err);
+              fallbackWhatsAppExpensesShare(expenses, activeGroup, blob);
+            });
+          } else {
+            fallbackWhatsAppExpensesShare(expenses, activeGroup, blob);
+          }
+        }, 'image/png');
+      }
+
+      // Cleanup
+      document.body.removeChild(exportCard);
+    }).catch(err => {
+      console.error('Failed to export expenses:', err);
+      document.body.style.cursor = 'default';
+      alert('An error occurred during export.');
+      if (document.getElementById('splitify-expenses-export-card')) {
+        document.body.removeChild(exportCard);
+      }
+    });
+  }, 100);
+}
+
+if (btnExportExpensesImageEl) {
+  btnExportExpensesImageEl.addEventListener('click', () => exportExpenses('image'));
+}
+if (btnExportExpensesWhatsappEl) {
+  btnExportExpensesWhatsappEl.addEventListener('click', () => exportExpenses('whatsapp'));
 }
 
 // ==========================================================================
