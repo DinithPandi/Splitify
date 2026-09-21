@@ -1521,7 +1521,7 @@ if (tabBtnActivity && tabBtnSettlements) {
 }
 
 // ==========================================================================
-// Authentication & Sync Flow Controller
+// Google Multi-Step Authentication & Sync Flow Controller
 // ==========================================================================
 
 const authContainerEl = document.getElementById('auth-container');
@@ -1529,19 +1529,127 @@ const appContainerEl = document.getElementById('app-container');
 const userProfileNameEl = document.getElementById('user-profile-name');
 const btnLogoutEl = document.getElementById('btn-logout');
 
-const tabLoginBtn = document.getElementById('tab-login');
-const tabSignupBtn = document.getElementById('tab-signup');
-const formLoginEl = document.getElementById('form-login');
-const formSignupEl = document.getElementById('form-signup');
+// Google Auth Left Column Elements
+const authMainTitleEl = document.getElementById('auth-main-title');
+const authMainSubtitleEl = document.getElementById('auth-main-subtitle');
+const authUserChipEl = document.getElementById('auth-user-chip');
+const authChipEmailEl = document.getElementById('auth-chip-email');
 
-const loginEmailInput = document.getElementById('login-email');
-const loginPasswordInput = document.getElementById('login-password');
-const signupUsernameInput = document.getElementById('signup-username');
-const signupEmailInput = document.getElementById('signup-email');
-const signupPasswordInput = document.getElementById('signup-password');
+// Google Auth Step 1: Email Form Elements
+const googleEmailFormEl = document.getElementById('google-email-form');
+const authEmailInputEl = document.getElementById('auth-email-input');
+const emailFieldContainerEl = document.getElementById('email-field-container');
+const emailErrorTextEl = document.getElementById('email-error-text');
+const btnToggleAuthModeEl = document.getElementById('btn-toggle-auth-mode');
+const btnEmailNextEl = document.getElementById('btn-email-next');
+const linkGuestModeEl = document.getElementById('link-guest-mode');
 
-const loginErrorEl = document.getElementById('login-error');
-const signupErrorEl = document.getElementById('signup-error');
+// Google Auth Step 2: Password Form Elements
+const googlePasswordFormEl = document.getElementById('google-password-form');
+const authPasswordInputEl = document.getElementById('auth-password-input');
+const passwordFieldContainerEl = document.getElementById('password-field-container');
+const passwordErrorTextEl = document.getElementById('password-error-text');
+const authShowPasswordChkEl = document.getElementById('auth-show-password-chk');
+const btnPasswordBackEl = document.getElementById('btn-password-back');
+const btnPasswordNextEl = document.getElementById('btn-password-next');
+
+// Google Auth Step 3: Username Popup Dialog Elements
+const modalUsernamePopupEl = document.getElementById('modal-username-popup');
+const formUsernamePopupEl = document.getElementById('form-username-popup');
+const authUsernameInputEl = document.getElementById('auth-username-input');
+const usernameFieldContainerEl = document.getElementById('username-field-container');
+const usernameErrorTextEl = document.getElementById('username-error-text');
+const btnUsernameCancelEl = document.getElementById('btn-username-cancel');
+const btnUsernameSubmitEl = document.getElementById('btn-username-submit');
+
+// Authentication Controller State
+let authMode = 'signup'; // Default to 'signup' (Create account) for first-time users as requested
+let currentAuthStep = 1; // 1: Email, 2: Password
+let currentAuthEmail = '';
+let currentAuthPassword = '';
+
+// Helper: Set/Clear Input Errors
+function setEmailError(msg) {
+  if (!emailFieldContainerEl || !emailErrorTextEl) return;
+  if (msg) {
+    emailFieldContainerEl.classList.add('has-error');
+    emailErrorTextEl.textContent = msg;
+    emailErrorTextEl.style.display = 'flex';
+  } else {
+    emailFieldContainerEl.classList.remove('has-error');
+    emailErrorTextEl.textContent = '';
+    emailErrorTextEl.style.display = 'none';
+  }
+}
+
+function setPasswordError(msg) {
+  if (!passwordFieldContainerEl || !passwordErrorTextEl) return;
+  if (msg) {
+    passwordFieldContainerEl.classList.add('has-error');
+    passwordErrorTextEl.textContent = msg;
+    passwordErrorTextEl.style.display = 'flex';
+  } else {
+    passwordFieldContainerEl.classList.remove('has-error');
+    passwordErrorTextEl.textContent = '';
+    passwordErrorTextEl.style.display = 'none';
+  }
+}
+
+function setUsernameError(msg) {
+  if (!usernameFieldContainerEl || !usernameErrorTextEl) return;
+  if (msg) {
+    usernameFieldContainerEl.classList.add('has-error');
+    usernameErrorTextEl.textContent = msg;
+    usernameErrorTextEl.style.display = 'flex';
+  } else {
+    usernameFieldContainerEl.classList.remove('has-error');
+    usernameErrorTextEl.textContent = '';
+    usernameErrorTextEl.style.display = 'none';
+  }
+}
+
+// Render Google Auth UI based on current mode and step
+function updateAuthUI() {
+  if (!authMainTitleEl) return;
+
+  if (currentAuthStep === 1) {
+    // Step 1: Email View
+    if (authMode === 'signup') {
+      authMainTitleEl.textContent = 'Create account';
+      authMainSubtitleEl.textContent = 'to continue to Splitify';
+      if (btnToggleAuthModeEl) btnToggleAuthModeEl.textContent = 'Sign in instead';
+    } else {
+      authMainTitleEl.textContent = 'Sign in';
+      authMainSubtitleEl.textContent = 'Use your Google Account';
+      if (btnToggleAuthModeEl) btnToggleAuthModeEl.textContent = 'Create account';
+    }
+
+    if (authMainSubtitleEl) authMainSubtitleEl.style.display = 'block';
+    if (authUserChipEl) authUserChipEl.style.display = 'none';
+
+    if (googleEmailFormEl) googleEmailFormEl.style.display = 'flex';
+    if (googlePasswordFormEl) googlePasswordFormEl.style.display = 'none';
+
+    setEmailError(null);
+    if (authEmailInputEl) setTimeout(() => authEmailInputEl.focus(), 50);
+  } else if (currentAuthStep === 2) {
+    // Step 2: Password View
+    authMainTitleEl.textContent = 'Welcome';
+    if (authMainSubtitleEl) authMainSubtitleEl.style.display = 'none';
+
+    if (authChipEmailEl) authChipEmailEl.textContent = currentAuthEmail;
+    if (authUserChipEl) authUserChipEl.style.display = 'inline-flex';
+
+    if (googleEmailFormEl) googleEmailFormEl.style.display = 'none';
+    if (googlePasswordFormEl) googlePasswordFormEl.style.display = 'flex';
+
+    setPasswordError(null);
+    if (authPasswordInputEl) {
+      authPasswordInputEl.value = '';
+      setTimeout(() => authPasswordInputEl.focus(), 50);
+    }
+  }
+}
 
 // Verify current session
 async function checkAuth() {
@@ -1575,6 +1683,10 @@ async function checkAuth() {
   authContainerEl.style.display = 'flex';
   const avatarEl = document.getElementById('user-avatar');
   if (avatarEl) avatarEl.textContent = 'G';
+
+  // Reset to initial step
+  currentAuthStep = 1;
+  updateAuthUI();
 }
 
 // Upload existing localStorage data to user account (Migration Helper)
@@ -1603,90 +1715,198 @@ async function migrateLocalStorageData() {
 
 // Bind auth UI events
 function initAuth() {
-  // Tab Switching
-  tabLoginBtn.addEventListener('click', () => {
-    tabLoginBtn.classList.add('active');
-    tabSignupBtn.classList.remove('active');
-    formLoginEl.classList.add('active');
-    formSignupEl.classList.remove('active');
-    loginErrorEl.style.display = 'none';
-  });
+  // Toggle between Sign In and Create Account
+  if (btnToggleAuthModeEl) {
+    btnToggleAuthModeEl.addEventListener('click', () => {
+      authMode = authMode === 'signup' ? 'login' : 'signup';
+      currentAuthStep = 1;
+      updateAuthUI();
+    });
+  }
 
-  tabSignupBtn.addEventListener('click', () => {
-    tabSignupBtn.classList.add('active');
-    tabLoginBtn.classList.remove('active');
-    formSignupEl.classList.add('active');
-    formLoginEl.classList.remove('active');
-    signupErrorEl.style.display = 'none';
-  });
+  // Email chip click to go back to email step
+  if (authUserChipEl) {
+    authUserChipEl.addEventListener('click', () => {
+      currentAuthStep = 1;
+      updateAuthUI();
+    });
+  }
 
-  // Login Form Submission
-  formLoginEl.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    loginErrorEl.style.display = 'none';
+  // Guest Mode link handler
+  if (linkGuestModeEl) {
+    linkGuestModeEl.addEventListener('click', (e) => {
+      e.preventDefault();
+      authContainerEl.style.display = 'none';
+      appContainerEl.style.display = 'flex';
+      userProfileNameEl.textContent = 'Guest';
+      const avatarEl = document.getElementById('user-avatar');
+      if (avatarEl) avatarEl.textContent = 'G';
+      loadState();
+      render();
+    });
+  }
 
-    const email = loginEmailInput.value.trim();
-    const password = loginPasswordInput.value;
+  // Email Step Form Submit
+  if (googleEmailFormEl) {
+    googleEmailFormEl.addEventListener('submit', (e) => {
+      e.preventDefault();
+      setEmailError(null);
 
-    try {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        // Successful login
-        loginEmailInput.value = '';
-        loginPasswordInput.value = '';
-        await checkAuth();
-      } else {
-        loginErrorEl.textContent = data.error || 'Invalid credentials';
-        loginErrorEl.style.display = 'block';
+      const emailVal = authEmailInputEl.value.trim();
+      if (!emailVal) {
+        setEmailError('Enter an email or phone number');
+        authEmailInputEl.focus();
+        return;
       }
-    } catch (err) {
-      console.error('Login submit error:', err);
-      loginErrorEl.textContent = 'Server connection failed';
-      loginErrorEl.style.display = 'block';
-    }
-  });
 
-  // Signup Form Submission
-  formSignupEl.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    signupErrorEl.style.display = 'none';
-
-    const username = signupUsernameInput.value.trim();
-    const email = signupEmailInput.value.trim();
-    const password = signupPasswordInput.value;
-
-    try {
-      const res = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, email, password })
-      });
-
-      const data = await res.json();
-      if (res.ok && data.success) {
-        // Successful registration, check if guest data exists to migrate
-        signupUsernameInput.value = '';
-        signupEmailInput.value = '';
-        signupPasswordInput.value = '';
-        
-        await migrateLocalStorageData();
-        await checkAuth();
-      } else {
-        signupErrorEl.textContent = data.error || 'Failed to create account';
-        signupErrorEl.style.display = 'block';
+      // Basic format validation
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(emailVal)) {
+        setEmailError('Enter a valid email address');
+        authEmailInputEl.focus();
+        return;
       }
-    } catch (err) {
-      console.error('Signup submit error:', err);
-      signupErrorEl.textContent = 'Server connection failed';
-      signupErrorEl.style.display = 'block';
-    }
-  });
+
+      currentAuthEmail = emailVal;
+      currentAuthStep = 2;
+      updateAuthUI();
+    });
+  }
+
+  // Password Back Button
+  if (btnPasswordBackEl) {
+    btnPasswordBackEl.addEventListener('click', () => {
+      currentAuthStep = 1;
+      updateAuthUI();
+    });
+  }
+
+  // Show Password Checkbox
+  if (authShowPasswordChkEl && authPasswordInputEl) {
+    authShowPasswordChkEl.addEventListener('change', () => {
+      authPasswordInputEl.type = authShowPasswordChkEl.checked ? 'text' : 'password';
+    });
+  }
+
+  // Password Step Form Submit
+  if (googlePasswordFormEl) {
+    googlePasswordFormEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setPasswordError(null);
+
+      const passVal = authPasswordInputEl.value;
+      if (!passVal) {
+        setPasswordError('Enter a password');
+        authPasswordInputEl.focus();
+        return;
+      }
+
+      if (passVal.length < 6) {
+        setPasswordError('Password must be at least 6 characters');
+        authPasswordInputEl.focus();
+        return;
+      }
+
+      currentAuthPassword = passVal;
+
+      if (authMode === 'signup') {
+        // Step 3: Open Username popup modal for new users
+        if (modalUsernamePopupEl) {
+          modalUsernamePopupEl.style.display = 'flex';
+          setUsernameError(null);
+          if (authUsernameInputEl) {
+            authUsernameInputEl.value = '';
+            setTimeout(() => authUsernameInputEl.focus(), 50);
+          }
+        }
+      } else {
+        // Login flow: Submit directly
+        btnPasswordNextEl.disabled = true;
+        btnPasswordNextEl.textContent = 'Signing in...';
+
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email: currentAuthEmail, password: currentAuthPassword })
+          });
+
+          const data = await res.json();
+          if (res.ok && data.success) {
+            authEmailInputEl.value = '';
+            authPasswordInputEl.value = '';
+            await checkAuth();
+          } else {
+            setPasswordError(data.error || 'Wrong password. Try again or click Forgot password.');
+          }
+        } catch (err) {
+          console.error('Login submit error:', err);
+          setPasswordError('Server connection failed');
+        } finally {
+          btnPasswordNextEl.disabled = false;
+          btnPasswordNextEl.textContent = 'Next';
+        }
+      }
+    });
+  }
+
+  // Username Popup Cancel/Back Button
+  if (btnUsernameCancelEl && modalUsernamePopupEl) {
+    btnUsernameCancelEl.addEventListener('click', () => {
+      modalUsernamePopupEl.style.display = 'none';
+      if (authPasswordInputEl) authPasswordInputEl.focus();
+    });
+  }
+
+  // Username Popup Form Submit (Completes Signup)
+  if (formUsernamePopupEl) {
+    formUsernamePopupEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      setUsernameError(null);
+
+      const usernameVal = authUsernameInputEl.value.trim();
+      if (!usernameVal) {
+        setUsernameError('Enter a username');
+        authUsernameInputEl.focus();
+        return;
+      }
+
+      btnUsernameSubmitEl.disabled = true;
+      btnUsernameSubmitEl.textContent = 'Creating account...';
+
+      try {
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: usernameVal,
+            email: currentAuthEmail,
+            password: currentAuthPassword
+          })
+        });
+
+        const data = await res.json();
+        if (res.ok && data.success) {
+          // Success: Close modal, clear fields, migrate and enter dashboard
+          modalUsernamePopupEl.style.display = 'none';
+          authEmailInputEl.value = '';
+          authPasswordInputEl.value = '';
+          authUsernameInputEl.value = '';
+
+          await migrateLocalStorageData();
+          await checkAuth();
+        } else {
+          setUsernameError(data.error || 'Failed to create account');
+        }
+      } catch (err) {
+        console.error('Signup submit error:', err);
+        setUsernameError('Server connection failed');
+      } finally {
+        btnUsernameSubmitEl.disabled = false;
+        btnUsernameSubmitEl.textContent = 'Continue to Dashboard';
+      }
+    });
+  }
 
   // Logout Click
   btnLogoutEl.addEventListener('click', async () => {
@@ -1718,7 +1938,7 @@ function initAuth() {
     });
   }
 
-  // Perform initial session validation
+  // Initial session validation
   checkAuth();
 }
 

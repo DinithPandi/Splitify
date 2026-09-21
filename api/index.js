@@ -7,7 +7,7 @@ const { MongoClient } = require('mongodb');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = (!isNaN(Number(process.env.PORT)) && Number(process.env.PORT) > 0) ? Number(process.env.PORT) : 5000;
 const MONGO_URI = process.env.MONGO_URI;
 const JWT_SECRET = process.env.JWT_SECRET || 'splitify-backup-secret-key-12345';
 
@@ -83,15 +83,11 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ error: 'A user with this email already exists' });
     }
 
-    // Hash the password
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash(password, salt);
-
-    // Save new user
+    // Save new user (plain-text password for testing purpose)
     const newUser = {
       email: email.toLowerCase(),
       username,
-      password: passwordHash,
+      password: password,
       createdAt: new Date()
     };
 
@@ -134,8 +130,11 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(400).json({ error: 'Invalid email or password' });
     }
 
-    // Verify Password
-    const isMatch = await bcrypt.compare(password, user.password);
+    // Verify Password (direct check for plain text testing, fallback to bcrypt for hashed accounts)
+    let isMatch = user.password === password;
+    if (!isMatch && user.password && user.password.startsWith('$2')) {
+      isMatch = await bcrypt.compare(password, user.password).catch(() => false);
+    }
     if (!isMatch) {
       return res.status(400).json({ error: 'Invalid email or password' });
     }
